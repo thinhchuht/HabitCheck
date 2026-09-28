@@ -2,6 +2,8 @@ using System.Linq;
 using System.Text.Json;
 using HabitCheckin.Application.Common;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using ProblemDetails = Microsoft.AspNetCore.Mvc.ProblemDetails;
 
 namespace HabitCheckin.Api.Middleware;
@@ -42,11 +44,15 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
             ConflictException cx => (StatusCodes.Status409Conflict, "Xung đột dữ liệu", cx.Message, null),
             NotFoundException nf => (StatusCodes.Status404NotFound, "Không tìm thấy dữ liệu", nf.Message, null),
             BusinessRuleException bx => (StatusCodes.Status422UnprocessableEntity, "Vi phạm quy tắc nghiệp vụ", bx.Message, null),
+            // Trigger DB (VD: khoá hoạt động khi kỳ đã ACTIVE) RAISE EXCEPTION → 422, không 500
+            DbUpdateException { InnerException: PostgresException pex } when pex.SqlState is "P0001" or "22023" =>
+                (StatusCodes.Status422UnprocessableEntity, "Vi phạm quy tắc nghiệp vụ", DbRuleMessage(pex), null),
             _ => (StatusCodes.Status500InternalServerError, "Có lỗi xảy ra, vui lòng thử lại sau", null, null)
         };
         var (Status, Title, Detail, Errors) = result;
 
-        if (ex is not (ValidationException or UnauthorizedException or ConflictException or NotFoundException or BusinessRuleException))
+        if (ex is not (ValidationException or UnauthorizedException or ConflictException or NotFoundException
+                       or BusinessRuleException or DbUpdateException))
             logger.LogError(ex, "Lỗi không xử lý: {Path}", context.Request.Path);
 
         var problem = new ProblemDetails
@@ -61,6 +67,7 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
                 ConflictException => "conflict",
                 UnauthorizedException or UnauthorizedAccessException => "unauthorized",
                 BusinessRuleException => "business-rule",
+                DbUpdateException => "business-rule",
                 _ => "internal"
             }}"
         };
@@ -75,6 +82,11 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
                 dict[key] = value;
             return dict;
         }
+
+        static string DbRuleMessage(PostgresException pex) =>
+            pex.MessageText.Contains("locked", StringComparison.OrdinalIgnoreCase)
+                ? "Kỳ thử thách đã bị khoá (đã bắt đầu), không thể thêm/sửa/xoá hoạt động"
+                : $"Không thể thực hiện thao tác: {pex.MessageText}";
 
         context.Response.StatusCode = Status;
         context.Response.ContentType = "application/problem+json";

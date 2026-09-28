@@ -40,9 +40,10 @@ public sealed class CheckInHandler(
         if (today < activity.Challenge!.StartDate || today > activity.Challenge.EndDate)
             throw new BusinessRuleException("Kỳ thử thách không hoạt động hôm nay");
 
-        // Tải challenge dạng tracked để có thể kích hoạt DRAFT đã đến hạn tại chỗ
-        // (kỳ tạo trong ngày vẫn DRAFT cho tới lần dùng đầu tiên).
-        var ch = await db.Challenges.FirstOrDefaultAsync(c => c.Id == activity.ChallengeId, ct)
+        // Tải challenge dạng tracked (kèm Activities) để có thể kích hoạt DRAFT
+        // đã đến hạn tại chỗ — kỳ rỗng vẫn DRAFT (ActivateIfDueAsync kiểm tra số hoạt động).
+        var ch = await db.Challenges.Include(c => c.Activities)
+            .FirstOrDefaultAsync(c => c.Id == activity.ChallengeId, ct)
             ?? throw new NotFoundException("Không tìm thấy kỳ thử thách");
         await ChallengeAccess.ActivateIfDueAsync(db, ch, today, now, ct);
         if (ch.Status != ChallengeStatus.Active)

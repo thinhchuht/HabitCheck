@@ -1,5 +1,6 @@
 using FluentAssertions;
 using HabitCheckin.Application.Abstractions;
+using HabitCheckin.Application.Challenges;
 using HabitCheckin.Application.CheckIns;
 using HabitCheckin.Application.Common;
 using HabitCheckin.Application.Dtos;
@@ -206,6 +207,27 @@ public class CheckInHandlersTests
         result.Status.Should().Be(CheckInStatus.Completed);
         tx.Challenge.Status.Should().Be(ChallengeStatus.Active);
         tx.Challenge.LockedAt.Should().Be(Now);
+    }
+
+    [Fact]
+    public async Task ActivateIfDue_DraftChallengeWithoutActivities_StaysDraft()
+    {
+        var tx = await CreateAsync(status: ChallengeStatus.Draft); // StartDate <= hôm nay
+        var today = DateOnly.FromDateTime(Now.ToOffset(TimeSpan.FromHours(7)).DateTime);
+
+        // Xoá hết hoạt động để kỳ trở nên rỗng (0 hoạt động)
+        var activities = await tx.Db.Activities
+            .Where(a => a.ChallengeId == tx.Challenge.Id).ToListAsync();
+        tx.Db.Activities.RemoveRange(activities);
+        await tx.Db.SaveChangesAsync();
+
+        var ch = await tx.Db.Challenges.Include(c => c.Activities)
+            .FirstAsync(c => c.Id == tx.Challenge.Id);
+
+        await ChallengeAccess.ActivateIfDueAsync(tx.Db, ch, today, Now, default);
+
+        ch.Status.Should().Be(ChallengeStatus.Draft);
+        ch.LockedAt.Should().BeNull();
     }
 
     [Fact]

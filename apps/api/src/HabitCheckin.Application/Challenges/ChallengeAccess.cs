@@ -36,10 +36,12 @@ public static class ChallengeAccess
     }
 
     /// DRAFT đã đến hạn (today >= StartDate) → kích hoạt ACTIVE + khoá.
-    /// Yêu cầu entity đã được EF tracking. Chỉ lưu khi có chuyển trạng thái.
+    /// Yêu cầu entity đã được EF tracking và Activities đã được load.
+    /// Chỉ tự kích hoạt khi đã có ít nhất 1 hoạt động — kỳ rỗng giữ DRAFT để
+    /// chủ vẫn thêm được hoạt động (tránh bẫy "khoá ở 0 hoạt động").
     public static async Task ActivateIfDueAsync(IAppDbContext db, Challenge ch, DateOnly today, DateTimeOffset now, CancellationToken ct)
     {
-        if (ch.Status == ChallengeStatus.Draft && today >= ch.StartDate)
+        if (ch.Status == ChallengeStatus.Draft && today >= ch.StartDate && ch.Activities.Count > 0)
         {
             ch.Status = ChallengeStatus.Active;
             ch.LockedAt = now;

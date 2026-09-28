@@ -35,8 +35,9 @@ public class DaySettlementService : ISettlementService
         var today = _clock.TodayLocal;
         // <= (không phải ==): lưới an toàn cho kỳ DRAFT tạo trong ngày, chưa bao giờ
         // được kích hoạt lazy (chưa ai mở trang Hôm nay / check-in).
+        // Kỳ rỗng (0 hoạt động) giữ DRAFT — không có gì để khoá.
         var drafts = await _db.Challenges
-            .Where(c => c.Status == ChallengeStatus.Draft && c.StartDate <= today)
+            .Where(c => c.Status == ChallengeStatus.Draft && c.StartDate <= today && c.Activities.Any())
             .ToListAsync(ct);
 
         foreach (var c in drafts)
