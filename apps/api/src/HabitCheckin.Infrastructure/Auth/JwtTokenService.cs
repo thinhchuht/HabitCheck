@@ -1,0 +1,48 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using HabitCheckin.Application.Abstractions;
+using HabitCheckin.Domain.Entities;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+
+namespace HabitCheckin.Infrastructure.Auth;
+
+public sealed class JwtOptions
+{
+    public const string SectionName = "Jwt";
+    public string Secret { get; set; } = string.Empty;
+    public int AccessMinutes { get; set; } = 15;
+    public string Issuer { get; set; } = "habit-checkin";
+    public string Audience { get; set; } = "habit-checkin-web";
+}
+
+public sealed class JwtTokenService(IOptions<JwtOptions> options) : IJwtTokenService
+{
+    private readonly JwtOptions _opt = options.Value;
+
+    public int AccessExpiresIn => _opt.AccessMinutes;
+
+    public string CreateToken(User user)
+    {
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_opt.Secret));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var claims = new[]
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new Claim(JwtRegisteredClaimNames.Email, user.Email),
+            new Claim(JwtRegisteredClaimNames.Name, user.DisplayName)
+        };
+
+        var token = new JwtSecurityToken(
+            issuer: _opt.Issuer,
+            audience: _opt.Audience,
+            claims: claims,
+            notBefore: DateTime.UtcNow,
+            expires: DateTime.UtcNow.AddMinutes(_opt.AccessMinutes),
+            signingCredentials: creds);
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+}

@@ -1,0 +1,154 @@
+import { KeyRound, UsersRound } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { getApiErrorMessage } from "@/api/client";
+import { groupsApi } from "@/api/groups";
+import { PageHeader } from "@/components/PageHeader";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useAppStore } from "@/store/app";
+import type { GroupDto } from "@/types/api";
+
+function pickGroup(group: GroupDto, navigate: (to: string) => void): void {
+  useAppStore.getState().setSelectedGroupId(group.id);
+  toast.success(`Đã vào nhóm "${group.name}"`);
+  navigate("/today");
+}
+
+export function OnboardingPage() {
+  const navigate = useNavigate();
+
+  const [groupName, setGroupName] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const [inviteCode, setInviteCode] = useState("");
+  const [joining, setJoining] = useState(false);
+
+  async function handleCreate(e: FormEvent) {
+    e.preventDefault();
+    const name = groupName.trim();
+    if (!name) {
+      toast.error("Vui lòng nhập tên nhóm");
+      return;
+    }
+    setCreating(true);
+    try {
+      const group = await groupsApi.create(name);
+      pickGroup(group, navigate);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Tạo nhóm thất bại"));
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleJoin(e: FormEvent) {
+    e.preventDefault();
+    const code = inviteCode.trim().toUpperCase();
+    if (!code) {
+      toast.error("Vui lòng nhập mã mời");
+      return;
+    }
+    setJoining(true);
+    try {
+      const group = await groupsApi.join(code);
+      pickGroup(group, navigate);
+    } catch (err) {
+      toast.error(
+        getApiErrorMessage(
+          err,
+          "Mã mời không hợp lệ hoặc bạn đã là thành viên.",
+        ),
+      );
+    } finally {
+      setJoining(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen px-4 py-10">
+      <div className="mx-auto w-full max-w-3xl">
+        <PageHeader
+          title="Vào nhóm"
+          subtitle="Tạo nhóm mới hoặc nhập mã mời để tham gia nhóm bạn bè."
+        />
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UsersRound className="h-5 w-5 text-indigo-600" />
+                Tạo nhóm mới
+              </CardTitle>
+              <CardDescription>
+                Bạn sẽ là chủ nhóm và có toàn quyền quản lý.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleCreate} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="group-name">Tên nhóm</Label>
+                  <Input
+                    id="group-name"
+                    value={groupName}
+                    onChange={(e) => setGroupName(e.target.value)}
+                    placeholder="VD: Hội quyết tâm dậy sớm"
+                    maxLength={100}
+                  />
+                </div>
+                <Button type="submit" disabled={creating} className="w-full">
+                  {creating ? "Đang tạo…" : "Tạo nhóm"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5 text-indigo-600" />
+                Tham gia nhóm
+              </CardTitle>
+              <CardDescription>
+                Nhập mã mời do chủ nhóm chia sẻ.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleJoin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="invite-code">Mã mời</Label>
+                  <Input
+                    id="invite-code"
+                    value={inviteCode}
+                    onChange={(e) =>
+                      setInviteCode(e.target.value.toUpperCase())
+                    }
+                    placeholder="VD: AB12CD"
+                    maxLength={16}
+                    className="font-mono uppercase"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  variant="outline"
+                  disabled={joining}
+                  className="w-full"
+                >
+                  {joining ? "Đang tham gia…" : "Tham gia nhóm"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}

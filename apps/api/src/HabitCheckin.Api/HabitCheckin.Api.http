@@ -1,0 +1,6 @@
+@HabitCheckin.Api_HostAddress = http://localhost:5213
+
+GET {{HabitCheckin.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
