@@ -98,7 +98,8 @@ public sealed class LiveBoardHandler(
                 var act = allActivities.FirstOrDefault(a => a.Id == c.ActivityId);
                 var uname = users.TryGetValue(c.UserId, out var uu) ? uu.DisplayName : "Unknown";
                 var actName = act?.Name ?? "Hoạt động";
-                var localTime = c.CheckinAt.ToOffset(tz.GetUtcOffset(c.CheckinAt)).TimeOfDay.ToString("HH:mm");
+                // DateTimeOffset.ToString("HH:mm") — KHÔNG dùng .TimeOfDay (TimeSpan không có format "HH").
+                var localTime = c.CheckinAt.ToOffset(tz.GetUtcOffset(c.CheckinAt)).ToString("HH:mm");
                 string text = c.CheckoutAt is not null
                     ? $"{uname} vừa kết thúc phiên {actName} ({c.DurationMinutes ?? 0} phút)"
                     : $"{uname} vừa check-in {actName} lúc {localTime}";
