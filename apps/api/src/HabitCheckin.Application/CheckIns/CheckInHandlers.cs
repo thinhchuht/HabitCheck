@@ -55,6 +55,7 @@ public sealed class CheckInHandler(
             ?? throw new BusinessRuleException("Upload intent không hợp lệ hoặc đã hết hạn");
 
         var asset = await media.VerifyAssetAsync(cmd.PublicId, activity.ProofType, intent.IntentAt, ct);
+        asset.UserId = user.Id;
 
         var alreadyDone = await db.CheckIns.AnyAsync(c =>
             c.ActivityId == activity.Id && c.UserId == user.Id
@@ -130,6 +131,7 @@ public sealed class CheckOutHandler(
             ?? throw new BusinessRuleException("Upload intent không hợp lệ hoặc đã hết hạn");
 
         var asset = await media.VerifyAssetAsync(cmd.PublicId, activity.ProofType, intent.IntentAt, ct);
+        asset.UserId = user.Id;
 
         var checkoutAt = intent.IntentAt;
         if (checkoutAt <= checkin.CheckinAt)
