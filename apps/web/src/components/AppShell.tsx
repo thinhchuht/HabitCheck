@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { GroupSwitcher } from "@/components/GroupSwitcher";
 import { firstName } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
 import { useLiveEvents } from "@/realtime/useLiveEvents";
@@ -90,6 +91,7 @@ export function AppShell() {
               {label}
             </NavLink>
           ))}
+          <GroupSwitcher />
         </nav>
         <div className="border-t border-slate-100 px-4 py-4">
           <UserChip />

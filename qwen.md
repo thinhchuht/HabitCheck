@@ -19,7 +19,7 @@
 ### 1.1 Khái niệm chính
 
 - **User**: đăng nhập bằng Gmail, có avatar, tên hiển thị.
-- **Group (Nhóm)**: tập hợp người chơi cùng nhau, xem realtime trạng thái của nhau, dùng chung một quỹ phạt. Tham gia bằng mã mời. User có thể **tạo/tham gia nhiều nhóm** và tự do chuyển đổi giữa các nhóm (frontend ghi nhóm đang dùng); **không có chức năng xoá nhóm**.
+- **Group (Nhóm)**: tập hợp người chơi cùng nhau, xem realtime trạng thái của nhau, dùng chung một quỹ phạt. Tham gia bằng mã mời. User có thể **tạo/tham gia nhiều nhóm** và tự do chuyển đổi — thanh bar trái hiển thị danh sách nhóm kèm **số việc chưa làm hôm nay** của từng nhóm (badge số cam; ✓ xanh khi xong hết), click nhóm để chuyển nhóm đang theo dõi (mọi trang theo group này); **không có chức năng xoá nhóm**.
 - **Challenge (Kỳ thử thách)**: mỗi user trong một nhóm tạo 1 challenge có `start_date` và `end_date`. Trong challenge user tự định nghĩa danh sách hoạt động.
 - **Activity (Hoạt động)**: do user tự điền tên + kiểu thời gian + thông số.
 - **Check-in**: lần ghi nhận thực hiện hoạt động, **bắt buộc đính kèm ảnh hoặc video**.
