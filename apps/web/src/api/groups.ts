@@ -9,7 +9,14 @@ export const groupsApi = {
 
   /** POST /groups/join — join via invite code. */
   join(inviteCode: string): Promise<GroupDto> {
-    return api.post<GroupDto>("/groups/join", { inviteCode }).then((r) => r.data);
+    return api
+      .post<GroupDto>("/groups/join", { inviteCode })
+      .then((r) => r.data);
+  },
+
+  /** GET /groups/mine — mọi nhóm user tham gia (không giới hạn số nhóm). */
+  mine(): Promise<GroupDto[]> {
+    return api.get<GroupDto[]>("/groups/mine").then((r) => r.data);
   },
 
   /** GET /groups/{id} */
@@ -18,8 +25,13 @@ export const groupsApi = {
   },
 
   /** PATCH /groups/{id}/penalty-tiers — OWNER only. */
-  updatePenaltyTiers(id: string, payload: PenaltyTiersPayload): Promise<GroupDto> {
-    return api.patch<GroupDto>(`/groups/${id}/penalty-tiers`, payload).then((r) => r.data);
+  updatePenaltyTiers(
+    id: string,
+    payload: PenaltyTiersPayload,
+  ): Promise<GroupDto> {
+    return api
+      .patch<GroupDto>(`/groups/${id}/penalty-tiers`, payload)
+      .then((r) => r.data);
   },
 
   /** GET /groups/{id}/live — realtime board snapshot. */

@@ -229,14 +229,15 @@ FundDto = {
 
 ### Groups
 
-| Method | Path                            | Request                                                               | Response                                             |
-| ------ | ------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------- |
-| POST   | `/groups`                       | `{ name: string }`                                                    | `201 GroupDto` (người tạo là OWNER)                  |
-| POST   | `/groups/join`                  | `{ inviteCode: string }`                                              | `200 GroupDto`. `404` sai mã, `409` đã là thành viên |
-| GET    | `/groups/{id}`                  | —                                                                     | `200 GroupDto` (chỉ thành viên)                      |
-| PATCH  | `/groups/{id}/penalty-tiers`    | `{ tiers: number[]; extraPerActivity: number }` (`tiers[0]` phải = 0) | `200 GroupDto` (chỉ OWNER)                           |
-| GET    | `/groups/{id}/live`             | —                                                                     | `200 LiveBoardDto`                                   |
-| DELETE | `/groups/{id}/members/{userId}` | —                                                                     | `204` (chỉ OWNER, không được xoá chính mình)         |
+| Method | Path                            | Request                                                               | Response                                                                                                                        |
+| ------ | ------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/groups`                       | `{ name: string }`                                                    | `201 GroupDto` (người tạo là OWNER)                                                                                             |
+| POST   | `/groups/join`                  | `{ inviteCode: string }`                                              | `200 GroupDto`. `404` sai mã, `409` đã là thành viên                                                                            |
+| GET    | `/groups/mine`                  | —                                                                     | `200 GroupDto[]` — mọi nhóm user tham gia (theo thứ tự tham gia); user được tạo/tham gia nhiều nhóm, không có endpoint xoá nhóm |
+| GET    | `/groups/{id}`                  | —                                                                     | `200 GroupDto` (chỉ thành viên)                                                                                                 |
+| PATCH  | `/groups/{id}/penalty-tiers`    | `{ tiers: number[]; extraPerActivity: number }` (`tiers[0]` phải = 0) | `200 GroupDto` (chỉ OWNER)                                                                                                      |
+| GET    | `/groups/{id}/live`             | —                                                                     | `200 LiveBoardDto`                                                                                                              |
+| DELETE | `/groups/{id}/members/{userId}` | —                                                                     | `204` (chỉ OWNER, không được xoá chính mình)                                                                                    |
 
 ### Challenges & Activities
 

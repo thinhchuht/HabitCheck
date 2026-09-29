@@ -107,6 +107,35 @@ public sealed class JoinGroupHandler(IAppDbContext db, ICurrentUser user, IClock
     }
 }
 
+// ---------- GetMyGroups ----------
+
+public sealed record GetMyGroupsQuery() : IRequest<List<GroupDto>>;
+
+public sealed class GetMyGroupsHandler(IAppDbContext db, ICurrentUser user)
+    : IRequestHandler<GetMyGroupsQuery, List<GroupDto>>
+{
+    public async Task<List<GroupDto>> Handle(GetMyGroupsQuery request, CancellationToken ct)
+    {
+        var memberships = await db.GroupMembers.AsNoTracking()
+            .Where(m => m.UserId == user.Id)
+            .OrderBy(m => m.JoinedAt)
+            .ToListAsync(ct);
+
+        var groups = await db.Groups.AsNoTracking()
+            .Where(g => memberships.Select(m => m.GroupId).Contains(g.Id))
+            .ToListAsync(ct);
+        var byId = groups.ToDictionary(g => g.Id);
+
+        var result = new List<GroupDto>();
+        foreach (var m in memberships)
+        {
+            if (!byId.TryGetValue(m.GroupId, out var g)) continue;
+            result.Add(await GroupDtoHelper.ToDtoAsync(db, g, ct));
+        }
+        return result;
+    }
+}
+
 // ---------- GetGroup ----------
 
 public sealed record GetGroupQuery(Guid GroupId) : IRequest<GroupDto>;

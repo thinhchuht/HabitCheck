@@ -22,6 +22,10 @@ public sealed class GroupsController(ISender sender) : ControllerBase
     public async Task<ActionResult<GroupDto>> Join([FromBody] JoinGroupCommand cmd, CancellationToken ct) =>
         Ok(await sender.Send(cmd, ct));
 
+    [HttpGet("mine")]
+    public async Task<ActionResult<List<GroupDto>>> Mine(CancellationToken ct) =>
+        Ok(await sender.Send(new GetMyGroupsQuery(), ct));
+
     [HttpGet("{groupId:guid}")]
     [Authorize(Policy = "GroupMember")]
     public async Task<ActionResult<GroupDto>> Get(Guid groupId, CancellationToken ct) =>
