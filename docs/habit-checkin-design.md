@@ -27,11 +27,11 @@
 
 ### 1.2 Kiểu thời gian của hoạt động
 
-| Kiểu                             | Ý nghĩa                                                                          | Tham số                                                                 | Điều kiện PASS                                               |
-| -------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `DEADLINE` (mốc giờ)             | Phải check-in trước một giờ nhất định. VD: Dậy sớm trước 06:00                   | `deadline_time` (HH:mm, mỗi người tự đặt), `grace_minutes` (mặc định 0) | Có check-in hợp lệ với `checkin_at <= deadline_time + grace` |
-| `DURATION` (thời lượng)          | Hoạt động kéo dài một số phút, tick + chụp 1 ảnh khi làm xong. VD: Thể dục 1 giờ | `target_minutes` (thời lượng mô tả, VD 60 = 1 giờ)                      | Có ≥ 1 check-in hợp lệ trong ngày (tick + bằng chứng)        |
-| `WINDOW` (khung giờ) _(mở rộng)_ | Phải check-in trong khung giờ. VD: Uống nước 12:00–13:00                         | `window_start`, `window_end`                                            | Có check-in trong khung                                      |
+| Kiểu                             | Ý nghĩa                                                                          | Tham số                                                            | Điều kiện PASS                                                         |
+| -------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| `DEADLINE` (mốc giờ)             | Phải check-in đúng một giờ nhất định. VD: Dậy sớm trước 06:00                    | `deadline_time` (HH:mm) — chỉ nhận **±5 phút** quanh mốc (cố định) | Có check-in trong khoảng `[deadline_time − 5, deadline_time + 5]` phút |
+| `DURATION` (thời lượng)          | Hoạt động kéo dài một số phút, tick + chụp 1 ảnh khi làm xong. VD: Thể dục 1 giờ | `target_minutes` (thời lượng mô tả, VD 60 = 1 giờ)                 | Có ≥ 1 check-in hợp lệ trong ngày (tick + bằng chứng)                  |
+| `WINDOW` (khung giờ) _(mở rộng)_ | Phải check-in trong khung giờ. VD: Uống nước 12:00–13:00                         | `window_start`, `window_end`                                       | Có check-in trong khung                                                |
 
 ### 1.3 Bằng chứng (proof)
 
@@ -43,11 +43,11 @@
   - Luồng: client xin _upload intent_ → server ghi `intent_at` và trả chữ ký Cloudinary → client upload → gửi `public_id` lên check-in. `checkin_at = intent_at`, với điều kiện media hoàn tất upload trong vòng 15 phút sau intent (kiểm bằng `created_at` từ Cloudinary Admin API). Nhờ vậy video upload chậm không bị tính trễ oan.
   - Trên mobile, input dùng `capture="environment"` để ưu tiên chụp trực tiếp từ camera.
   - Mỗi `public_id` chỉ dùng một lần.
-  - Thành viên nhóm có thể báo cáo, chủ nhóm có quyền từ chối bằng chứng (xem mục Trang kiểm tra).
+  - **Không có bước duyệt**: bằng chứng hợp lệ ngay khi upload thành công (các endpoint report/approve/reject vẫn giữ trong code, UI không dùng).
 
 ### 1.4 Quy tắc tính phạt
 
-Mỗi ngày, đếm số hoạt động **FAIL** (check-in trễ, không check-in, hoặc chưa đủ thời lượng, hoặc bằng chứng bị từ chối):
+Mỗi ngày, đếm số hoạt động **FAIL** (không check-in, hoặc check-in ngoài khung ±5 phút của DEADLINE):
 
 | Số hoạt động fail trong ngày | Tiền phạt                   |
 | ---------------------------- | --------------------------- |
@@ -73,9 +73,8 @@ Mỗi ngày, đếm số hoạt động **FAIL** (check-in trễ, không check-i
 - Múi giờ cố định: `Asia/Ho_Chi_Minh`.
 - **00:05 hằng ngày**: job tính kết quả _tạm thời_ (`PROVISIONAL`) cho ngày hôm trước.
   - Phiên `DURATION` OPEN cũ (tạo trước thay đổi tick + 1 ảnh) chưa check-out đến 23:59:59 → tự đóng, **không tính** (trạng thái `ABANDONED`). Từ nay DURATION không tạo phiên OPEN.
-- **Cửa sổ khiếu nại / duyệt**: đến 12:00 ngày hôm sau, thành viên xem lại bằng chứng, chủ nhóm có thể từ chối.
 - **12:00 hằng ngày**: job chốt `FINAL`, ghi tiền phạt vào sổ quỹ (ledger).
-- Nếu bằng chứng bị từ chối trong cửa sổ duyệt, kết quả ngày được tính lại ngay và đẩy realtime.
+- Không có cửa sổ khiếu nại / duyệt: bằng chứng hợp lệ ngay khi upload (xem §1.3), nên kết quả `PROVISIONAL` cơ bản đã ổn định đến lúc chốt `FINAL`.
 
 ---
 
@@ -138,7 +137,7 @@ sequenceDiagram
     C-->>U: {public_id, resource_type}
     U->>API: POST /api/checkins {activityId, intentId, publicId}
     API->>C: Admin API: lấy asset, kiểm tra created_at, type, size
-    API->>API: validate nghiệp vụ, checkin_at = intent_at
+    API->>API: validate nghiệp vụ (cửa sổ ±5 phút cho DEADLINE), checkin_at = intent_at
     API-->>U: 201 CheckIn
     API->>H: broadcast group: CheckInCreated
 ```
@@ -217,7 +216,7 @@ apps/web/
 │   │   ├── today/          # trang Hôm nay, nút check-in/out, đồng hồ đếm
 │   │   ├── challenge/      # tạo/sửa kỳ thử thách + hoạt động
 │   │   ├── live-board/     # bảng realtime nhóm
-│   │   ├── review/         # trang kiểm tra bằng chứng
+│   │   ├── review/         # trang bằng chứng check-in (chỉ đọc)
 │   │   ├── stats/          # thống kê, biểu đồ
 │   │   ├── fund/           # quỹ phạt
 │   │   ├── group/          # nhóm, thành viên, mã mời, cấu hình phạt
@@ -323,9 +322,9 @@ CREATE TABLE activities (
   icon                text,
   type                activity_type NOT NULL,
   deadline_time       time,          -- DEADLINE
-  grace_minutes       int NOT NULL DEFAULT 0,
-  target_minutes      int,           -- DURATION
-  min_session_minutes int,
+  grace_minutes       int NOT NULL DEFAULT 0,   -- không còn dùng (quy tắc ±5 phút cố định), giữ cột DB
+  target_minutes      int,           -- DURATION (chỉ mô tả thời lượng, không dùng để chấm điểm)
+  min_session_minutes int,           -- không còn dùng (không còn đo thời lượng)
   window_start        time,          -- WINDOW
   window_end          time,
   proof_type          proof_type NOT NULL DEFAULT 'ANY',
@@ -378,6 +377,7 @@ CREATE INDEX ix_checkins_user_date ON checkins(user_id, local_date);
 -- Mỗi hoạt động chỉ có 1 phiên OPEN
 CREATE UNIQUE INDEX ux_open_session ON checkins(activity_id, user_id) WHERE status = 'OPEN';
 
+-- Bảng này giữ trong code — UI không còn dùng báo cáo/duyệt bằng chứng
 CREATE TABLE proof_reviews (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   checkin_id   uuid NOT NULL REFERENCES checkins(id) ON DELETE CASCADE,
@@ -500,22 +500,22 @@ Base: `/api`, auth Bearer JWT, lỗi trả `ProblemDetails` (RFC 7807). OpenAPI 
 
 ### Check-in
 
-| Method | Path                      | Mô tả                                         |
-| ------ | ------------------------- | --------------------------------------------- |
-| GET    | `/today`                  | Hoạt động hôm nay + trạng thái, phiên đang mở |
-| POST   | `/uploads/intent`         | `{activityId, kind}` → chữ ký Cloudinary      |
-| POST   | `/checkins`               | `{activityId, intentId, publicId, note}`      |
-| POST   | `/checkins/{id}/checkout` | `{intentId, publicId}`                        |
-| GET    | `/checkins?userId=&date=` | Lịch sử (cùng nhóm mới xem được)              |
+| Method | Path                      | Mô tả                                                                                                   |
+| ------ | ------------------------- | ------------------------------------------------------------------------------------------------------- |
+| GET    | `/today`                  | Hoạt động hôm nay + trạng thái, phiên đang mở                                                           |
+| POST   | `/uploads/intent`         | `{activityId, kind}` → chữ ký Cloudinary                                                                |
+| POST   | `/checkins`               | `{activityId, intentId, publicId, note}` — DEADLINE: chỉ nhận trong ±5 phút quanh mốc giờ, khác thì 422 |
+| POST   | `/checkins/{id}/checkout` | `{intentId, publicId}`                                                                                  |
+| GET    | `/checkins?userId=&date=` | Lịch sử (cùng nhóm mới xem được)                                                                        |
 
-### Review (Trang kiểm tra)
+### Bằng chứng (trang check-in — chỉ đọc)
 
-| Method | Path                                | Mô tả                               |
-| ------ | ----------------------------------- | ----------------------------------- |
-| GET    | `/groups/{id}/proofs?date=&status=` | Feed bằng chứng cần xem             |
-| POST   | `/checkins/{id}/report`             | Thành viên báo cáo nghi vấn         |
-| POST   | `/checkins/{id}/approve`            | Owner/Admin xác nhận                |
-| POST   | `/checkins/{id}/reject`             | Owner/Admin từ chối → tính lại ngày |
+| Method | Path                                | Mô tả                                                          |
+| ------ | ----------------------------------- | -------------------------------------------------------------- |
+| GET    | `/groups/{id}/proofs?date=&status=` | Feed bằng chứng check-in của nhóm theo ngày (mặc định hôm nay) |
+| POST   | `/checkins/{id}/report`             | Giữ trong code — UI không dùng                                 |
+| POST   | `/checkins/{id}/approve`            | Giữ trong code — UI không dùng                                 |
+| POST   | `/checkins/{id}/reject`             | Giữ trong code — UI không dùng                                 |
 
 ### Stats & Fund
 
@@ -540,15 +540,15 @@ Client gọi:
 
 Server đẩy về group:
 
-| Event                | Payload                                                    | Dùng cho                        |
-| -------------------- | ---------------------------------------------------------- | ------------------------------- |
-| `CheckInCreated`     | `{userId, activityId, checkinAt, isLate, thumbnailUrl}`    | Live board, feed review         |
-| `CheckOutCompleted`  | `{userId, activityId, durationMinutes, totalTodayMinutes}` | Live board                      |
-| `SessionStarted`     | `{userId, activityId, startedAt}`                          | Hiện "đang học…" + đồng hồ chạy |
-| `ProofRejected`      | `{checkinId, userId, reason}`                              | Review, Today                   |
-| `DailyResultUpdated` | `{userId, date, failedCount, penaltyAmount, status}`       | Live board, Stats               |
-| `MemberPresence`     | `{userId, online}`                                         | Chấm xanh online                |
-| `ProfileUpdated`     | `{userId, displayName, avatarUrl}`                         | Cập nhật avatar khắp nơi        |
+| Event                | Payload                                                    | Dùng cho                                                |
+| -------------------- | ---------------------------------------------------------- | ------------------------------------------------------- |
+| `CheckInCreated`     | `{userId, activityId, checkinAt, isLate, thumbnailUrl}`    | Live board, feed bằng chứng                             |
+| `CheckOutCompleted`  | `{userId, activityId, durationMinutes, totalTodayMinutes}` | Legacy: phiên OPEN cũ (không còn phát cho check-in mới) |
+| `SessionStarted`     | `{userId, activityId, startedAt}`                          | Legacy: không còn phát cho check-in mới                 |
+| `ProofRejected`      | `{checkinId, userId, reason}`                              | Giữ trong code — UI không dùng                          |
+| `DailyResultUpdated` | `{userId, date, failedCount, penaltyAmount, status}`       | Live board, Stats                                       |
+| `MemberPresence`     | `{userId, online}`                                         | Chấm xanh online                                        |
+| `ProfileUpdated`     | `{userId, displayName, avatarUrl}`                         | Cập nhật avatar khắp nơi                                |
 
 - (Cũ) Đồng hồ phiên `DURATION` từng chạy ở client từ `startedAt` + offset `serverTime`; giờ DURATION là tick + 1 ảnh nên không còn đồng hồ phiên.
 - Khi reconnect: client gọi lại `GET /groups/{id}/live` để đồng bộ snapshot rồi tiếp tục nghe event.
@@ -565,14 +565,14 @@ Server đẩy về group:
 
 - Header: ngày, số hoạt động đã xong / tổng, **tiền phạt dự kiến hôm nay** (tính realtime).
 - Thẻ từng hoạt động:
-  - `DEADLINE`: đếm ngược tới hạn, nút **Check-in** (mở camera/chọn file). Sau hạn → đỏ "Trễ".
+  - `DEADLINE`: chỉ nhận check-in trong **±5 phút** quanh mốc giờ (mở camera/chọn file): trước khung → "Chưa mở giờ check-in (HH:mm–HH:mm)" + nút disable; trong khung → đếm ngược (nút bật); sau khung → "ĐÃ QUÁ GIỜ" + disable.
   - `DURATION`: thời lượng mục tiêu (VD "60 phút"), nút **Hoàn thành** (tick) mở hộp thoại chụp ảnh; sau check-in hiện ✅ kèm giờ và ảnh đã nộp.
-  - Hiển thị ảnh/video đã nộp, trạng thái review.
+  - Hiển thị ảnh/video đã nộp.
 
 ### 7.3 Kỳ thử thách (thiết lập)
 
 - Chọn ngày bắt đầu / kết thúc (date range picker).
-- Form thêm hoạt động: tên, icon, kiểu thời gian, tham số, loại bằng chứng.
+- Form thêm hoạt động: tên, icon, kiểu thời gian, tham số, loại bằng chứng. `DEADLINE` chỉ đặt mốc giờ — cửa sổ check-in cố định ±5 phút (không còn ô "chậm thêm" `grace_minutes`).
 - Xem trước bảng phạt của nhóm.
 - Badge "Sẽ khoá lúc 00:00 dd/MM" và hộp xác nhận khi DRAFT; khi ACTIVE hiển thị chế độ chỉ đọc 🔒.
 - Lịch sử các kỳ đã qua.
@@ -580,16 +580,16 @@ Server đẩy về group:
 ### 7.4 Live board (realtime nhóm)
 
 - Lưới: hàng = thành viên (avatar, online), cột = trạng thái tổng hôm nay.
-- Mở rộng từng người: danh sách hoạt động ✅ / ⏳ đang làm (đồng hồ chạy) / ❌ trễ / ⬜ chưa làm.
+- Mở rộng từng người: danh sách hoạt động ✅ đạt / ⏳ chưa làm (⏳ "Trễ" nếu DEADLINE đã qua mốc giờ) / ❌ fail kèm lý do.
 - Ticker hoạt động mới nhất ("An vừa check-in Dậy sớm lúc 05:48").
 - Tổng phạt dự kiến hôm nay của cả nhóm.
 
-### 7.5 Trang kiểm tra (Review)
+### 7.5 Trang bằng chứng (check-in)
 
-- Feed bằng chứng theo ngày, lọc: tất cả / bị báo cáo / chưa duyệt / theo thành viên.
-- Xem ảnh full, video player, giờ check-in server, giờ upload.
-- Thành viên: nút **Báo cáo** + lý do. Owner/Admin: **Xác nhận** / **Từ chối**.
-- Đồng hồ đếm ngược đến lúc chốt FINAL.
+- Feed bằng chứng check-in của nhóm, **chỉ đọc** — không cần duyệt: bằng chứng hợp lệ ngay khi upload.
+- Lọc theo ngày (mặc định hôm nay) và theo thành viên.
+- Xem ảnh full (lightbox), giờ check-in theo server, giờ trên hệ thống.
+- Không có nút báo cáo / xác nhận / từ chối.
 
 ### 7.6 Thống kê
 
@@ -623,6 +623,9 @@ public sealed record ActivityEvaluation(Guid ActivityId, bool Passed, string? Re
 
 public static class ActivityEvaluator
 {
+    /// <summary>Cửa sổ check-in DEADLINE: chỉ nhận trong ±N phút quanh mốc giờ.</summary>
+    public const int DeadlineWindowMinutes = 5;
+
     public static ActivityEvaluation Evaluate(Activity a, DateOnly date, IReadOnlyList<CheckIn> dayCheckins, TimeZoneInfo tz)
     {
         var valid = dayCheckins.Where(c => c.ActivityId == a.Id && c.Status != CheckInStatus.Rejected).ToList();
@@ -634,7 +637,7 @@ public static class ActivityEvaluator
             {
                 var first = valid.MinBy(c => c.CheckinAt);
                 if (first is null) return new(a.Id, false, rejectedOnly ? "REJECTED" : "MISSING", null, null);
-                var limit = ToInstant(date, a.DeadlineTime!.Value.AddMinutes(a.GraceMinutes), tz);
+                var limit = ToInstant(date, a.DeadlineTime!.Value.AddMinutes(DeadlineWindowMinutes), tz);
                 return first.CheckinAt <= limit
                     ? new(a.Id, true, null, null, first.CheckinAt)
                     : new(a.Id, false, "LATE", null, first.CheckinAt);
@@ -707,6 +710,20 @@ public async Task<CheckInDto> Handle(CheckInCommand cmd, CancellationToken ct)
     if (activity.Challenge.Status != ChallengeStatus.Active ||
         today < activity.Challenge.StartDate || today > activity.Challenge.EndDate)
         throw new BusinessRuleException("Challenge không hoạt động hôm nay");
+
+    // DEADLINE: chỉ nhận check-in trong ±5 phút quanh mốc giờ
+    // (tính trên DateTimeOffset để mốc 00:01 không tràn TimeOnly khi lùi cửa sổ sang ngày trước).
+    if (activity.Type == ActivityType.Deadline && activity.DeadlineTime is TimeOnly dl)
+    {
+        var winStart = Domain.Services.ActivityEvaluator.ToInstant(today, dl, clock.LocalTimeZone)
+            .AddMinutes(-Domain.Services.ActivityEvaluator.DeadlineWindowMinutes);
+        var winEnd = Domain.Services.ActivityEvaluator.ToInstant(today, dl, clock.LocalTimeZone)
+            .AddMinutes(Domain.Services.ActivityEvaluator.DeadlineWindowMinutes);
+        if (now < winStart)
+            throw new BusinessRuleException($"Chưa đến giờ check-in '{activity.Name}': chỉ nhận trong khoảng {winStart:HH:mm}–{winEnd:HH:mm} (±{Domain.Services.ActivityEvaluator.DeadlineWindowMinutes} phút quanh mốc {dl:HH:mm})");
+        if (now > winEnd)
+            throw new BusinessRuleException($"Quá giờ check-in '{activity.Name}': chỉ nhận trong khoảng {winStart:HH:mm}–{winEnd:HH:mm} (±{Domain.Services.ActivityEvaluator.DeadlineWindowMinutes} phút quanh mốc {dl:HH:mm})");
+    }
 
     var intent = await _db.UploadIntents.SingleOrDefaultAsync(i =>
         i.Id == cmd.IntentId && i.UserId == _user.Id && i.ActivityId == activity.Id &&
@@ -862,7 +879,7 @@ Migration: API tự chạy `db.Database.MigrateAsync()` khi khởi động (môi
 | Giai đoạn   | Nội dung                                                                                                                                                            |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **MVP 1**   | Google login, nhóm + mã mời, challenge + hoạt động (DEADLINE, DURATION), khoá theo ngày bắt đầu, check-in/out có ảnh/video, trang Hôm nay, job chốt ngày, tính phạt |
-| **MVP 2**   | Live board SignalR, trang kiểm tra (báo cáo/từ chối), đổi avatar, quỹ phạt                                                                                          |
+| **MVP 2**   | Live board SignalR, trang bằng chứng check-in (không cần duyệt), đổi avatar, quỹ phạt                                                                               |
 | **MVP 3**   | Thống kê + heatmap + leaderboard, nhắc nhở Web Push, PWA (cài lên điện thoại)                                                                                       |
 | **Mở rộng** | Kiểu WINDOW, VietQR đóng quỹ, xuất báo cáo Excel, đa nhóm, huy hiệu thành tích                                                                                      |
 
@@ -870,8 +887,8 @@ Migration: API tự chạy `db.Database.MigrateAsync()` khi khởi động (môi
 
 ## 13. Các điểm cần chốt thêm
 
-1. Mức phạt riêng 10k cho "Dậy sớm" có giữ không, hay áp dụng thống nhất bảng 20k/50k/70k?
+1. Mức phạt riêng 10k cho "Dậy sớm" → **Đã hỗ trợ**: mỗi hoạt động có `override_penalty` (ô "Phạt riêng" trong form); để trống → dùng bảng bậc.
 2. ~~Hoạt động `DURATION` có cho chia nhiều phiên trong ngày không?~~ → Đã chốt (28/09/2026): **không** — DURATION là tick + 1 ảnh, 1 check-in/ngày.
-3. Phiên quên check-out: không tính (hiện tại) hay tính đến giờ tối đa?
-4. Ai được từ chối bằng chứng: chỉ owner/admin (hiện tại) hay bỏ phiếu đa số?
+3. ~~Phiên quên check-out~~ → Đã chốt: DURATION không còn phiên check-out (tick + 1 ảnh); phiên OPEN cũ tự đóng `ABANDONED` khi chốt ngày.
+4. ~~Ai được từ chối bằng chứng~~ → Đã chốt (29/09/2026): **không còn bước duyệt/từ chối** — bằng chứng hợp lệ ngay khi upload.
 5. Có cho nghỉ phép (ngày miễn phạt) trong kỳ không?
