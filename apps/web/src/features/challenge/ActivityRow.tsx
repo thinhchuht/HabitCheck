@@ -9,10 +9,8 @@ import type { ActivityDto } from "@/types/api";
 /** Short parameter summary per activity type. */
 export function activitySummary(a: ActivityDto): string {
   switch (a.type) {
-    case "DEADLINE": {
-      const grace = a.graceMinutes > 0 ? ` (+${a.graceMinutes} phút)` : "";
-      return `trước ${a.deadlineTime ?? "…"}${grace}`;
-    }
+    case "DEADLINE":
+      return `trước ${a.deadlineTime ?? "…"} (chỉ nhận ±5 phút)`;
     case "DURATION":
       return `${a.targetMinutes ?? 0} phút/ngày — tick + 1 ảnh`;
     case "WINDOW":

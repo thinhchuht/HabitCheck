@@ -219,7 +219,9 @@ public class DaySettlementService : ISettlementService
                     case ActivityType.Deadline when a.DeadlineTime is TimeOnly t && !valid:
                         {
                             var ahead = user.ReminderDeadlineAheadMinutes ?? 10;
-                            var deadline = ActivityEvaluator.ToInstant(today, t.AddMinutes(a.GraceMinutes), _clock.LocalTimeZone);
+                            // Nhắc tới khi cửa sổ check-in đóng (mốc +5 phút).
+                            var deadline = ActivityEvaluator.ToInstant(today, t, _clock.LocalTimeZone)
+                                .AddMinutes(ActivityEvaluator.DeadlineWindowMinutes);
                             var remindFrom = deadline.AddMinutes(-ahead);
                             if (now >= remindFrom && now <= deadline)
                             {

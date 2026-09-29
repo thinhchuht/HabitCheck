@@ -62,12 +62,13 @@ public class CheckInHandlersTests
             Status = status,
             CreatedAt = Now
         };
+        // Mốc 08:00 VN (khung ±5 phút: 07:55–08:05) — giờ đồng hồ giả 08:00 VN nằm trong khung.
         var deadlineActivity = new Activity
         {
             ChallengeId = challenge.Id,
             Name = "Dậy sớm",
             Type = ActivityType.Deadline,
-            DeadlineTime = new TimeOnly(8, 30),
+            DeadlineTime = new TimeOnly(8, 0),
             GraceMinutes = 0,
             SortOrder = 0
         };
@@ -180,6 +181,36 @@ public class CheckInHandlersTests
             new CheckInCommand(tx.DeadlineActivity.Id, tx.CheckInIntent.Id, "pub-1", null), default);
 
         await act.Should().ThrowAsync<BusinessRuleException>();
+    }
+
+    [Fact]
+    public async Task CheckIn_Deadline_BeforeWindow_ThrowsBusinessRule()
+    {
+        var tx = await CreateAsync();
+        // Mốc 09:00 VN → khung 08:55–09:05; đồng hồ 08:00 VN → chưa mở.
+        tx.DeadlineActivity.DeadlineTime = new TimeOnly(9, 0);
+        await tx.Db.SaveChangesAsync();
+
+        var act = () => CheckInHandler(tx).Handle(
+            new CheckInCommand(tx.DeadlineActivity.Id, tx.CheckInIntent.Id, "pub-1", null), default);
+
+        var ex = await act.Should().ThrowAsync<BusinessRuleException>();
+        ex.Which.Message.Should().Contain("Chưa đến giờ check-in");
+    }
+
+    [Fact]
+    public async Task CheckIn_Deadline_AfterWindow_ThrowsBusinessRule()
+    {
+        var tx = await CreateAsync();
+        // Mốc 07:00 VN → khung 06:55–07:05; đồng hồ 08:00 VN → quá khung.
+        tx.DeadlineActivity.DeadlineTime = new TimeOnly(7, 0);
+        await tx.Db.SaveChangesAsync();
+
+        var act = () => CheckInHandler(tx).Handle(
+            new CheckInCommand(tx.DeadlineActivity.Id, tx.CheckInIntent.Id, "pub-1", null), default);
+
+        var ex = await act.Should().ThrowAsync<BusinessRuleException>();
+        ex.Which.Message.Should().Contain("Quá giờ check-in");
     }
 
     [Fact]

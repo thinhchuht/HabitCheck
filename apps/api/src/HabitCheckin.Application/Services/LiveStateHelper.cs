@@ -27,7 +27,7 @@ public static class LiveStateHelper
         bool over = a.Type switch
         {
             ActivityType.Deadline => a.DeadlineTime is TimeOnly t
-                && now >= ActivityEvaluator.ToInstant(today, t.AddMinutes(a.GraceMinutes), tz),
+                && now >= ActivityEvaluator.ToInstant(today, t, tz).AddMinutes(ActivityEvaluator.DeadlineWindowMinutes),
             ActivityType.Window => a.WindowEnd is TimeOnly w
                 && now >= ActivityEvaluator.ToInstant(today, w, tz),
             _ => false
@@ -48,6 +48,6 @@ public static class LiveStateHelper
     {
         if (eval.Passed) return false;
         if (a.Type != ActivityType.Deadline || a.DeadlineTime is not TimeOnly t) return false;
-        return now >= ActivityEvaluator.ToInstant(today, t.AddMinutes(a.GraceMinutes), tz);
+        return now >= ActivityEvaluator.ToInstant(today, t, tz);
     }
 }

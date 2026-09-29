@@ -17,7 +17,7 @@ public class ActivityEvaluatorTests
     private static DateTimeOffset Local(int hour, int minute) =>
         new(new DateTime(2025, 1, 15, hour, minute, 0), TimeSpan.FromHours(7));
 
-    private static Activity NewActivity(ActivityType type, TimeOnly? deadline = null, int grace = 0,
+    private static Activity NewActivity(ActivityType type, TimeOnly? deadline = null,
         int? target = null, int? minSession = null, TimeOnly? winStart = null, TimeOnly? winEnd = null) => new()
         {
             Id = ActivityId,
@@ -25,7 +25,7 @@ public class ActivityEvaluatorTests
             Name = "Hoạt động thử",
             Type = type,
             DeadlineTime = deadline,
-            GraceMinutes = grace,
+            GraceMinutes = 0,
             TargetMinutes = target,
             MinSessionMinutes = minSession,
             WindowStart = winStart,
@@ -59,24 +59,26 @@ public class ActivityEvaluatorTests
     }
 
     [Fact]
-    public void Deadline_AfterDeadlineAndGrace_IsLate()
+    public void Deadline_AfterDeadlineButInsideWindow_Passes()
     {
-        var a = NewActivity(ActivityType.Deadline, deadline: new TimeOnly(6, 0), grace: 15);
+        // Check-in sau mốc 6:00 nhưng còn trong cửa sổ +5 phút (6:03) → PASS.
+        var a = NewActivity(ActivityType.Deadline, deadline: new TimeOnly(6, 0));
         var result = ActivityEvaluator.Evaluate(a, Date,
-            [NewCheckin(Local(6, 16), CheckInStatus.Completed)], Tz);
+            [NewCheckin(Local(6, 3), CheckInStatus.Completed)], Tz);
 
-        result.Passed.Should().BeFalse();
-        result.Reason.Should().Be("LATE");
+        result.Passed.Should().BeTrue();
     }
 
     [Fact]
-    public void Deadline_WithinGrace_Passes()
+    public void Deadline_AfterWindow_IsLate()
     {
-        var a = NewActivity(ActivityType.Deadline, deadline: new TimeOnly(6, 0), grace: 15);
+        // 6:06 > mốc 6:00 + 5 phút → LATE.
+        var a = NewActivity(ActivityType.Deadline, deadline: new TimeOnly(6, 0));
         var result = ActivityEvaluator.Evaluate(a, Date,
-            [NewCheckin(Local(6, 10), CheckInStatus.Completed)], Tz);
+            [NewCheckin(Local(6, 6), CheckInStatus.Completed)], Tz);
 
-        result.Passed.Should().BeTrue();
+        result.Passed.Should().BeFalse();
+        result.Reason.Should().Be("LATE");
     }
 
     [Fact]

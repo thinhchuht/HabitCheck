@@ -9,26 +9,14 @@ import { formatMinutesVN, fmtDateTime, fmtTime } from "@/lib/format";
 import { firstName, isEmojiLike } from "@/lib/utils";
 import type { ProofFeedItemDto } from "@/types/api";
 import { MediaLightbox } from "./MediaLightbox";
-import { ReviewActions } from "./ReviewActions";
 
 interface ProofCardProps {
   item: ProofFeedItemDto;
-  canModerate: boolean;
-  finalized: boolean;
-  /** Display name of the current user (để đánh dấu "báo cáo của bạn"). */
-  myName: string;
 }
 
-export function ProofCard({
-  item,
-  canModerate,
-  finalized,
-  myName,
-}: ProofCardProps) {
+export function ProofCard({ item }: ProofCardProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const { checkin, user, activity, challenge, reports, review } = item;
-
-  const alreadyReported = reports.some((r) => r.reporterName === myName);
+  const { checkin, user, activity, challenge } = item;
 
   return (
     <Card>
@@ -75,28 +63,12 @@ export function ProofCard({
               <Badge variant="secondary">
                 {ACTIVITY_TYPE_LABELS[activity.type]}
               </Badge>
-            </div>
-
-            <p className="text-xs text-slate-400">Kỳ: {challenge.title}</p>
-
-            <div className="flex flex-wrap items-center gap-1.5">
-              {review ? (
-                <Badge
-                  variant={review.action === "APPROVE" ? "success" : "danger"}
-                >
-                  {review.action === "APPROVE" ? "Đã duyệt" : "Đã từ chối"} •{" "}
-                  {review.reviewerName}
-                </Badge>
-              ) : (
-                <Badge variant="secondary">Chưa duyệt</Badge>
-              )}
               <Badge variant="secondary">
                 {CHECKIN_STATUS_LABELS[checkin.status]}
               </Badge>
-              {reports.length > 0 ? (
-                <Badge variant="warning">{reports.length} báo cáo</Badge>
-              ) : null}
             </div>
+
+            <p className="text-xs text-slate-400">Kỳ: {challenge.title}</p>
 
             <p className="text-sm text-slate-600">
               Giờ check-in (server):{" "}
@@ -124,37 +96,7 @@ export function ProofCard({
             {checkin.note ? (
               <p className="text-sm italic text-slate-500">“{checkin.note}”</p>
             ) : null}
-
-            {reports.length > 0 ? (
-              <ul className="space-y-1 rounded-lg bg-amber-50 px-3 py-2">
-                {reports.map((r, i) => (
-                  <li key={i} className="text-xs text-amber-800">
-                    {r.reason} — {r.reporterName}{" "}
-                    {alreadyReported && r.reporterName === myName
-                      ? "(bạn)"
-                      : ""}
-                    , {fmtDateTime(r.at)}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-
-            {review?.reason ? (
-              <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
-                Lý do của {review.reviewerName}: {review.reason}
-              </p>
-            ) : null}
           </div>
-        </div>
-
-        <div className="mt-3 border-t border-slate-100 pt-3">
-          <ReviewActions
-            checkinId={checkin.id}
-            canModerate={canModerate}
-            finalized={finalized}
-            alreadyReviewed={review != null}
-            alreadyReported={alreadyReported}
-          />
         </div>
       </CardContent>
 

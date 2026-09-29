@@ -1,35 +1,26 @@
-import { ShieldCheck } from "lucide-react";
+import { BadgeCheck } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import type { ProofFeedItemDto } from "@/types/api";
 import { ProofCard } from "./ProofCard";
 
 interface ProofFeedProps {
   items: ProofFeedItemDto[];
-  canModerate: boolean;
-  finalized: boolean;
-  myName: string;
 }
 
-export function ProofFeed({ items, canModerate, finalized, myName }: ProofFeedProps) {
+export function ProofFeed({ items }: ProofFeedProps) {
   if (items.length === 0) {
     return (
       <EmptyState
-        icon={<ShieldCheck className="h-7 w-7" />}
+        icon={<BadgeCheck className="h-7 w-7" />}
         title="Không có bằng chứng nào"
-        description="Chưa có check-in nào khớp bộ lọc trong ngày này."
+        description="Chưa có check-in nào trong ngày này. Chọn ngày khác để xem."
       />
     );
   }
   return (
     <div className="space-y-4">
       {items.map((item) => (
-        <ProofCard
-          key={item.checkin.id}
-          item={item}
-          canModerate={canModerate}
-          finalized={finalized}
-          myName={myName}
-        />
+        <ProofCard key={item.checkin.id} item={item} />
       ))}
     </div>
   );

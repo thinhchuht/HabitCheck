@@ -49,6 +49,22 @@ public sealed class CheckInHandler(
         if (ch.Status != ChallengeStatus.Active)
             throw new BusinessRuleException("Kỳ thử thách không hoạt động hôm nay");
 
+        // DEADLINE: chỉ nhận check-in trong ±5 phút quanh mốc giờ
+        // (tính trên DateTimeOffset để mốc 00:01 không tràn TimeOnly khi lùi cửa sổ sang ngày trước).
+        if (activity.Type == ActivityType.Deadline && activity.DeadlineTime is TimeOnly dl)
+        {
+            var winStart = Domain.Services.ActivityEvaluator.ToInstant(today, dl, clock.LocalTimeZone)
+                .AddMinutes(-Domain.Services.ActivityEvaluator.DeadlineWindowMinutes);
+            var winEnd = Domain.Services.ActivityEvaluator.ToInstant(today, dl, clock.LocalTimeZone)
+                .AddMinutes(Domain.Services.ActivityEvaluator.DeadlineWindowMinutes);
+            if (now < winStart)
+                throw new BusinessRuleException(
+                    $"Chưa đến giờ check-in '{activity.Name}': chỉ nhận trong khoảng {winStart:HH:mm}–{winEnd:HH:mm} (±{Domain.Services.ActivityEvaluator.DeadlineWindowMinutes} phút quanh mốc {dl:HH:mm})");
+            if (now > winEnd)
+                throw new BusinessRuleException(
+                    $"Quá giờ check-in '{activity.Name}': chỉ nhận trong khoảng {winStart:HH:mm}–{winEnd:HH:mm} (±{Domain.Services.ActivityEvaluator.DeadlineWindowMinutes} phút quanh mốc {dl:HH:mm})");
+        }
+
         var intent = await db.UploadIntents.FirstOrDefaultAsync(i =>
             i.Id == cmd.IntentId && i.UserId == user.Id && i.ActivityId == activity.Id
             && i.Kind == UploadIntentKind.CheckIn && i.UsedAt == null && i.ExpiresAt > now, ct)
@@ -78,9 +94,9 @@ public sealed class CheckInHandler(
         var isLate = false;
         if (activity.Type == ActivityType.Deadline && activity.DeadlineTime is TimeOnly t)
         {
-            var limit = Domain.Services.ActivityEvaluator.ToInstant(
-                today, t.AddMinutes(activity.GraceMinutes), clock.LocalTimeZone);
-            isLate = checkinAt > limit;
+            // "Trễ" = sau mốc giờ (vẫn PASS nếu trong cửa sổ +5 phút).
+            var deadline = Domain.Services.ActivityEvaluator.ToInstant(today, t, clock.LocalTimeZone);
+            isLate = checkinAt > deadline;
         }
 
         db.CheckIns.Add(checkin);

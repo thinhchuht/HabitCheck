@@ -31,7 +31,6 @@ const activitySchema = z
     icon: z.string().max(8, "Icon tối đa 8 ký tự"),
     type: z.enum(["DEADLINE", "DURATION", "WINDOW"]),
     deadlineTime: z.string(),
-    graceMinutes: z.string(),
     targetMinutes: z.string(),
     windowStart: z.string(),
     windowEnd: z.string(),
@@ -39,17 +38,6 @@ const activitySchema = z
     overridePenalty: z.string(),
   })
   .superRefine((v, ctx) => {
-    if (v.graceMinutes !== "") {
-      const grace = Number(v.graceMinutes);
-      if (!Number.isInteger(grace) || grace < 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["graceMinutes"],
-          message: "Số nguyên ≥ 0",
-        });
-      }
-    }
-
     if (v.type === "DEADLINE" && !v.deadlineTime) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -123,7 +111,6 @@ function toInput(v: ActivityFormValues): ActivityInput {
   };
   if (v.type === "DEADLINE") {
     input.deadlineTime = v.deadlineTime;
-    input.graceMinutes = v.graceMinutes === "" ? 0 : Number(v.graceMinutes);
   } else if (v.type === "DURATION") {
     input.targetMinutes =
       v.targetMinutes === "" ? null : Number(v.targetMinutes);
@@ -168,7 +155,6 @@ export function ActivityFormDialog({
       icon: "",
       type: "DEADLINE",
       deadlineTime: "",
-      graceMinutes: "",
       targetMinutes: "",
       windowStart: "",
       windowEnd: "",
@@ -188,9 +174,6 @@ export function ActivityFormDialog({
               icon: activity.icon ?? "",
               type: activity.type,
               deadlineTime: toTimeInput(activity.deadlineTime),
-              graceMinutes: activity.graceMinutes
-                ? String(activity.graceMinutes)
-                : "",
               targetMinutes:
                 activity.targetMinutes != null
                   ? String(activity.targetMinutes)
@@ -209,7 +192,6 @@ export function ActivityFormDialog({
               icon: "",
               type: "DEADLINE",
               deadlineTime: "",
-              graceMinutes: "",
               targetMinutes: "",
               windowStart: "",
               windowEnd: "",
@@ -313,27 +295,18 @@ export function ActivityFormDialog({
           </div>
 
           {type === "DEADLINE" ? (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="act-deadline">Giờ hạn *</Label>
-                <Input
-                  id="act-deadline"
-                  type="time"
-                  {...register("deadlineTime")}
-                />
-                {fieldError("deadlineTime")}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="act-grace">Chậm thêm (phút)</Label>
-                <Input
-                  id="act-grace"
-                  type="number"
-                  min={0}
-                  placeholder="0"
-                  {...register("graceMinutes")}
-                />
-                {fieldError("graceMinutes")}
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="act-deadline">Giờ hạn *</Label>
+              <Input
+                id="act-deadline"
+                type="time"
+                {...register("deadlineTime")}
+              />
+              <p className="text-xs text-slate-400">
+                Chỉ nhận check-in trong ±5 phút quanh mốc giờ (VD: hạn 6:00 →
+                check-in được từ 5:55 đến 6:05).
+              </p>
+              {fieldError("deadlineTime")}
             </div>
           ) : null}
 
