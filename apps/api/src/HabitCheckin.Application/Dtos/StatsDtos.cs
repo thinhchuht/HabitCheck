@@ -9,7 +9,6 @@ public sealed record StatActivityDto(
     string Name,
     string? Icon,
     double CompletionRate,
-    long TotalPenalty,
     string? AvgCheckinTime,
     int? AvgMinutes);
 

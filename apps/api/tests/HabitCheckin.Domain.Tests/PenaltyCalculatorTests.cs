@@ -23,34 +23,10 @@ public class PenaltyCalculatorTests
     [Fact]
     public void Calculate_PassingActivities_AreNotPenalized()
     {
-        var items = new List<(ActivityEvaluation Eval, long? Override)>
+        var items = new List<ActivityEvaluation>
         {
-            (Pass(Guid.NewGuid()), null),
-            (Pass(Guid.NewGuid()), null)
-        };
-
-        PenaltyCalculator.Calculate(items, PenaltyTiers.Default).Should().Be(0);
-    }
-
-    [Fact]
-    public void Calculate_OverridePenalty_IsChargedSeparatelyAndSkipsTier()
-    {
-        // 1 fail có override 10k (không đếm bậc) + 1 fail không override (bậc 1 = 20k) => 30k
-        var items = new List<(ActivityEvaluation Eval, long? Override)>
-        {
-            (Fail(Guid.NewGuid()), 10_000),
-            (Fail(Guid.NewGuid()), null)
-        };
-
-        PenaltyCalculator.Calculate(items, PenaltyTiers.Default).Should().Be(30_000);
-    }
-
-    [Fact]
-    public void Calculate_OverrideOnPassingActivity_IsIgnored()
-    {
-        var items = new List<(ActivityEvaluation Eval, long? Override)>
-        {
-            (Pass(Guid.NewGuid()), 10_000)
+            Pass(Guid.NewGuid()),
+            Pass(Guid.NewGuid())
         };
 
         PenaltyCalculator.Calculate(items, PenaltyTiers.Default).Should().Be(0);
@@ -65,8 +41,8 @@ public class PenaltyCalculatorTests
         PenaltyCalculator.Calculate(Failures(4), cfg).Should().Be(40_000);
     }
 
-    private static IEnumerable<(ActivityEvaluation Eval, long? Override)> Failures(int n) =>
-        Enumerable.Range(0, n).Select(_ => (Fail(Guid.NewGuid()), (long?)null));
+    private static IEnumerable<ActivityEvaluation> Failures(int n) =>
+        Enumerable.Range(0, n).Select(_ => Fail(Guid.NewGuid()));
 
     private static ActivityEvaluation Fail(Guid id) => new(id, false, "LATE", null, null);
     private static ActivityEvaluation Pass(Guid id) => new(id, true, null, null, null);

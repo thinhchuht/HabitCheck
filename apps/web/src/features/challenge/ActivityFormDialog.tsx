@@ -35,7 +35,6 @@ const activitySchema = z
     windowStart: z.string(),
     windowEnd: z.string(),
     proofType: z.enum(["PHOTO", "VIDEO", "ANY"]),
-    overridePenalty: z.string(),
   })
   .superRefine((v, ctx) => {
     if (v.type === "DEADLINE" && !v.deadlineTime) {
@@ -80,17 +79,6 @@ const activitySchema = z
         });
       }
     }
-
-    if (v.overridePenalty !== "") {
-      const op = Number(v.overridePenalty);
-      if (!Number.isInteger(op) || op < 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["overridePenalty"],
-          message: "Số tiền phạt riêng (số nguyên ≥ 0, VND)",
-        });
-      }
-    }
   });
 
 type ActivityFormValues = z.infer<typeof activitySchema>;
@@ -106,8 +94,6 @@ function toInput(v: ActivityFormValues): ActivityInput {
     icon: v.icon.trim() || null,
     type: v.type,
     proofType: v.proofType,
-    overridePenalty:
-      v.overridePenalty === "" ? null : Number(v.overridePenalty),
   };
   if (v.type === "DEADLINE") {
     input.deadlineTime = v.deadlineTime;
@@ -159,7 +145,6 @@ export function ActivityFormDialog({
       windowStart: "",
       windowEnd: "",
       proofType: "ANY",
-      overridePenalty: "",
     },
   });
 
@@ -181,10 +166,6 @@ export function ActivityFormDialog({
               windowStart: toTimeInput(activity.windowStart),
               windowEnd: toTimeInput(activity.windowEnd),
               proofType: activity.proofType,
-              overridePenalty:
-                activity.overridePenalty != null
-                  ? String(activity.overridePenalty)
-                  : "",
             }
           : {
               name: "",
@@ -196,7 +177,6 @@ export function ActivityFormDialog({
               windowStart: "",
               windowEnd: "",
               proofType: "ANY",
-              overridePenalty: "",
             },
       );
     }
@@ -351,30 +331,17 @@ export function ActivityFormDialog({
             </div>
           ) : null}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="act-proof">Loại bằng chứng *</Label>
-              <select
-                id="act-proof"
-                className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
-                {...register("proofType")}
-              >
-                <option value="ANY">Ảnh hoặc video</option>
-                <option value="PHOTO">Chỉ ảnh</option>
-                <option value="VIDEO">Chỉ video</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="act-override">Phạt riêng (VND)</Label>
-              <Input
-                id="act-override"
-                type="number"
-                min={0}
-                placeholder="Trống = theo bậc"
-                {...register("overridePenalty")}
-              />
-              {fieldError("overridePenalty")}
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="act-proof">Loại bằng chứng *</Label>
+            <select
+              id="act-proof"
+              className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+              {...register("proofType")}
+            >
+              <option value="ANY">Ảnh hoặc video</option>
+              <option value="PHOTO">Chỉ ảnh</option>
+              <option value="VIDEO">Chỉ video</option>
+            </select>
           </div>
 
           {formError ? (

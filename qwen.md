@@ -58,7 +58,7 @@ Mỗi ngày, đếm số hoạt động **FAIL** (không check-in, hoặc check-
 | > 3                          | 70.000đ + 20.000đ × (n − 3) |
 
 - Bảng bậc phạt lưu dạng cấu hình (`penalty_tiers` JSONB) theo **nhóm**, chủ nhóm chỉnh được trước khi các challenge bắt đầu.
-- Ví dụ "Dậy sớm trễ phạt 10k" trong yêu cầu gốc mâu thuẫn với mức 20k/hoạt động → thiết kế hỗ trợ thêm `override_penalty` theo từng hoạt động (tuỳ chọn). Nếu hoạt động có `override_penalty` thì tính riêng số tiền đó và **không** đếm vào bậc. Mặc định để trống → áp dụng bảng bậc ở trên.
+- **Không có phạt riêng theo hoạt động**: mọi hoạt động fail đều đếm chung vào bảng bậc trên. (Yêu cầu gốc "Dậy sớm trễ phạt 10k" đã chốt bỏ — chỉ dùng bảng bậc nhóm; `override_penalty` đã xoá khỏi code + DB.)
 
 ### 1.5 Khoá hoạt động theo ngày bắt đầu
 
@@ -328,7 +328,6 @@ CREATE TABLE activities (
   window_start        time,          -- WINDOW
   window_end          time,
   proof_type          proof_type NOT NULL DEFAULT 'ANY',
-  override_penalty    bigint,        -- VND, null = dùng bảng bậc
   sort_order          int NOT NULL DEFAULT 0,
   CHECK (
     (type = 'DEADLINE' AND deadline_time IS NOT NULL) OR
@@ -680,22 +679,18 @@ public sealed record PenaltyTiers(long[] Tiers, long ExtraPerActivity); // Tiers
 
 public static class PenaltyCalculator
 {
-    public static long Calculate(IEnumerable<(ActivityEvaluation Eval, long? Override)> items, PenaltyTiers cfg)
+    public static long Calculate(IEnumerable<ActivityEvaluation> items, PenaltyTiers cfg)
     {
-        var failed = items.Where(x => !x.Eval.Passed).ToList();
-        var overrideSum = failed.Where(x => x.Override.HasValue).Sum(x => x.Override!.Value);
-        var n = failed.Count(x => !x.Override.HasValue);
+        var n = items.Count(e => !e.Passed);
 
-        long tierAmount = n < cfg.Tiers.Length
-            ? cfg.Tiers[n]
-            : cfg.Tiers[^1] + (n - (cfg.Tiers.Length - 1)) * cfg.ExtraPerActivity;
-
-        return tierAmount + overrideSum;
+        if (cfg.Tiers.Length == 0) return 0;
+        if (n < cfg.Tiers.Length) return cfg.Tiers[n];
+        return cfg.Tiers[^1] + (n - (cfg.Tiers.Length - 1)) * cfg.ExtraPerActivity;
     }
 }
 ```
 
-Test bắt buộc: 0 → 0, 1 → 20.000, 2 → 50.000, 3 → 70.000, 4 → 90.000, có override.
+Test bắt buộc: 0 → 0, 1 → 20.000, 2 → 50.000, 3 → 70.000, 4 → 90.000. Không có khái niệm phạt riêng theo hoạt động.
 
 ### 8.3 Check-in handler (rút gọn)
 
@@ -888,7 +883,7 @@ Migration: API tự chạy `db.Database.MigrateAsync()` khi khởi động (môi
 
 ## 13. Các điểm cần chốt thêm
 
-1. Mức phạt riêng 10k cho "Dậy sớm" → **Đã hỗ trợ**: mỗi hoạt động có `override_penalty` (ô "Phạt riêng" trong form); để trống → dùng bảng bậc.
+1. Mức phạt riêng 10k cho "Dậy sớm" → **Đã chốt (29/09/2026): bỏ** — chỉ áp dụng bảng bậc nhóm, không có phạt riêng theo hoạt động (`override_penalty` đã xoá khỏi code + DB).
 2. ~~Hoạt động `DURATION` có cho chia nhiều phiên trong ngày không?~~ → Đã chốt (28/09/2026): **không** — DURATION là tick + 1 ảnh, 1 check-in/ngày.
 3. ~~Phiên quên check-out~~ → Đã chốt: DURATION không còn phiên check-out (tick + 1 ảnh); phiên OPEN cũ tự đóng `ABANDONED` khi chốt ngày.
 4. ~~Ai được từ chối bằng chứng~~ → Đã chốt (29/09/2026): **không còn bước duyệt/từ chối** — bằng chứng hợp lệ ngay khi upload.

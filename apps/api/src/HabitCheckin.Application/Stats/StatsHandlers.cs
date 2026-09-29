@@ -117,12 +117,7 @@ public sealed class GetUserStatsHandler(IAppDbContext db, ICurrentUser user, ICl
                     if (sessions.Count > 0) avgMinutes = (int)Math.Round(sessions.Average());
                 }
 
-                long activityPenalty = details
-                    .Where(x => !x.det.Passed)
-                    .Where(x => a.OverridePenalty.HasValue)
-                    .Sum(x => a.OverridePenalty!.Value);
-
-                return new StatActivityDto(a.Id.ToString(), a.Name, a.Icon, rate, activityPenalty,
+                return new StatActivityDto(a.Id.ToString(), a.Name, a.Icon, rate,
                     avgCheckinTime, avgMinutes);
             })
             .OrderByDescending(x => x.CompletionRate)

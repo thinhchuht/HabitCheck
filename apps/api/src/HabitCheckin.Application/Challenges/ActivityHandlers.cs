@@ -25,7 +25,6 @@ public sealed class ActivityInputValidator : AbstractValidator<ActivityInput>
             .When(x => x.Type == ActivityType.Window);
         RuleFor(x => x.GraceMinutes).InclusiveBetween(0, 240)
             .When(x => x.Type == ActivityType.Deadline);
-        RuleFor(x => x.OverridePenalty).GreaterThan(0).When(x => x.OverridePenalty.HasValue);
     }
 }
 
@@ -38,7 +37,6 @@ internal static class ActivityMapper
         a.Icon = input.Icon;
         a.Type = input.Type;
         a.ProofType = input.ProofType ?? ProofType.Any;
-        a.OverridePenalty = input.OverridePenalty;
 
         a.DeadlineTime = input.DeadlineTime is null ? null : TimeOnly.Parse(input.DeadlineTime!);
         a.GraceMinutes = input.Type == ActivityType.Deadline ? (input.GraceMinutes ?? 0) : 0;

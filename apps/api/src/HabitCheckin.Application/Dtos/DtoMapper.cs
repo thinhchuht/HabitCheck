@@ -22,7 +22,7 @@ public static class DtoMapper
     public static ActivityDto ToDto(this Activity a) => new(
         a.Id.ToString(), a.ChallengeId.ToString(), a.Name, a.Description, a.Icon, a.Type,
         Fmt.Time(a.DeadlineTime), a.GraceMinutes, a.TargetMinutes, a.MinSessionMinutes,
-        Fmt.Time(a.WindowStart), Fmt.Time(a.WindowEnd), a.ProofType, a.OverridePenalty, a.SortOrder);
+        Fmt.Time(a.WindowStart), Fmt.Time(a.WindowEnd), a.ProofType, a.SortOrder);
 
     public static ChallengeDto ToDto(this Challenge c, string ownerName, IReadOnlyList<Activity> activities) => new(
         c.Id.ToString(), c.GroupId.ToString(), c.UserId.ToString(), ownerName, c.Title,

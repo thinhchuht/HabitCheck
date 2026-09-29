@@ -22,7 +22,6 @@ public class Activity
     public TimeOnly? WindowEnd { get; set; }
 
     public ProofType ProofType { get; set; } = ProofType.Any;
-    public long? OverridePenalty { get; set; }
     public int SortOrder { get; set; }
 
     public Challenge? Challenge { get; set; }

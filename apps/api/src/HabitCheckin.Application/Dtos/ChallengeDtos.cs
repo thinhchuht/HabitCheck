@@ -17,7 +17,6 @@ public sealed record ActivityDto(
     string? WindowStart,
     string? WindowEnd,
     ProofType ProofType,
-    long? OverridePenalty,
     int SortOrder);
 
 public sealed record ChallengeDto(
@@ -45,8 +44,7 @@ public sealed record ActivityInput(
     int? MinSessionMinutes,
     string? WindowStart,
     string? WindowEnd,
-    ProofType? ProofType,
-    long? OverridePenalty);
+    ProofType? ProofType);
 
 public sealed record CreateChallengeCommand(Guid GroupId, string Title, string StartDate, string EndDate)
     : IRequest<ChallengeDto>;

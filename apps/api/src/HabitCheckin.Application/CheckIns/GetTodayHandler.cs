@@ -80,7 +80,7 @@ public sealed class GetTodayHandler(IAppDbContext db, ICurrentUser user, IClock 
             }).ToList();
 
             expectedPenalty = PenaltyCalculator.Calculate(
-                evals.Select(e => (e.Eval, e.Activity.OverridePenalty)), group.PenaltyTiers);
+                evals.Select(e => e.Eval), group.PenaltyTiers);
         }
 
         TodayResultDto? result = null;

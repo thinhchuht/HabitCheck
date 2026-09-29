@@ -2,7 +2,6 @@ import { Clock, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ACTIVITY_TYPE_LABELS, PROOF_TYPE_LABELS } from "@/lib/constants";
-import { formatVND } from "@/lib/format";
 import { isEmojiLike } from "@/lib/utils";
 import type { ActivityDto } from "@/types/api";
 
@@ -47,11 +46,6 @@ export function ActivityRow({
           <Badge variant="secondary">
             {PROOF_TYPE_LABELS[activity.proofType]}
           </Badge>
-          {activity.overridePenalty != null ? (
-            <Badge variant="warning">
-              Phạt riêng {formatVND(activity.overridePenalty)}
-            </Badge>
-          ) : null}
         </div>
         <p className="mt-0.5 truncate text-sm text-slate-500">
           {activitySummary(activity)}

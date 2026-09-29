@@ -97,7 +97,7 @@ public class DaySettlementService : ISettlementService
             .ToList();
 
         var penalty = PenaltyCalculator.Calculate(
-            evaluations.Select(e => (e.Eval, e.Activity.OverridePenalty)), group.PenaltyTiers);
+            evaluations.Select(e => e.Eval), group.PenaltyTiers);
 
         var result = await _db.DailyResults
             .FirstOrDefaultAsync(r => r.ChallengeId == challengeId && r.LocalDate == date, ct);

@@ -80,7 +80,6 @@ export interface ActivityDto {
   windowStart: string | null;
   windowEnd: string | null;
   proofType: ProofType;
-  overridePenalty: number | null;
   sortOrder: number;
 }
 
@@ -246,7 +245,6 @@ export interface PersonalStatsByActivity {
   name: string;
   icon: string | null;
   completionRate: number;
-  totalPenalty: number;
   avgCheckinTime: string | null;
   avgMinutes: number | null;
 }
@@ -386,7 +384,6 @@ export interface ActivityInput {
   windowStart?: string | null;
   windowEnd?: string | null;
   proofType?: ProofType;
-  overridePenalty?: number | null;
 }
 
 export interface UploadIntentRequest {

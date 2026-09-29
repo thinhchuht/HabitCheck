@@ -80,7 +80,7 @@ public sealed class LiveBoardHandler(
                     items.Add(new LiveItemDto(a.Id.ToString(), state, failReason, a.Name, a.Icon, isLate));
                 }
                 expected = PenaltyCalculator.Calculate(
-                    evals.Select(e => (e.Eval, e.Activity.OverridePenalty)), group.PenaltyTiers);
+                    evals.Select(e => e.Eval), group.PenaltyTiers);
             }
             totalExpectedPenalty += expected;
 

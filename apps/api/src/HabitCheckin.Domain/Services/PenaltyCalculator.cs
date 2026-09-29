@@ -5,23 +5,15 @@ namespace HabitCheckin.Domain.Services;
 public static class PenaltyCalculator
 {
     /// <summary>
-    /// Tính tiền phạt cho một ngày. Activity có OverridePenalty được tính riêng,
-    /// không đếm vào bậc; số hoạt động fail còn lại (không có override) tra bảng tiers.
+    /// Tính tiền phạt cho một ngày: đếm số hoạt động fail rồi tra bảng bậc của nhóm.
+    /// Không có phạt riêng theo hoạt động — chỉ áp dụng bảng bậc nhóm.
     /// </summary>
-    public static long Calculate(IEnumerable<(ActivityEvaluation Eval, long? Override)> items, PenaltyTiers cfg)
+    public static long Calculate(IEnumerable<ActivityEvaluation> items, PenaltyTiers cfg)
     {
-        var failed = items.Where(x => !x.Eval.Passed).ToList();
-        var overrideSum = failed.Where(x => x.Override.HasValue).Sum(x => x.Override!.Value);
-        var n = failed.Count(x => !x.Override.HasValue);
+        var n = items.Count(e => !e.Passed);
 
-        long tierAmount;
-        if (cfg.Tiers.Length == 0)
-            tierAmount = 0;
-        else if (n < cfg.Tiers.Length)
-            tierAmount = cfg.Tiers[n];
-        else
-            tierAmount = cfg.Tiers[^1] + (n - (cfg.Tiers.Length - 1)) * cfg.ExtraPerActivity;
-
-        return tierAmount + overrideSum;
+        if (cfg.Tiers.Length == 0) return 0;
+        if (n < cfg.Tiers.Length) return cfg.Tiers[n];
+        return cfg.Tiers[^1] + (n - (cfg.Tiers.Length - 1)) * cfg.ExtraPerActivity;
     }
 }

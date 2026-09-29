@@ -72,7 +72,6 @@ ActivityDto = {
   minSessionMinutes: number | null; // deprecated — luôn null với hoạt động mới
   windowStart: string | null; windowEnd: string | null;   // WINDOW
   proofType: ProofType;
-  overridePenalty: number | null; // VND, null = dùng bảng bậc
   sortOrder: number;
 }
 
@@ -176,7 +175,7 @@ PersonalStatsDto = {
   byDay: Array<{ date: string; passed: number; failed: number; total: number; penalty: number }>;
   byActivity: Array<{
     activityId: string; name: string; icon: string | null;
-    completionRate: number; totalPenalty: number;
+    completionRate: number;
     avgCheckinTime: string | null;  // "HH:mm" — chỉ DEADLINE
     avgMinutes: number | null;      // — chỉ DURATION
   }>;
@@ -263,7 +262,6 @@ FundDto = {
   minSessionMinutes?: number | null; // deprecated — server bỏ qua
   windowStart?: string | null; windowEnd?: string | null; // WINDOW: cả hai bắt buộc, windowEnd > windowStart
   proofType?: ProofType;                                  // mặc định ANY
-  overridePenalty?: number | null;
 }
 ```
 
