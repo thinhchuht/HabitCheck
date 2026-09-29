@@ -20,7 +20,10 @@ export function LiveBoardPage() {
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["live", groupId],
-    queryFn: () => (groupId ? groupsApi.live(groupId) : Promise.reject(new Error("Chưa chọn nhóm"))),
+    queryFn: () =>
+      groupId
+        ? groupsApi.live(groupId)
+        : Promise.reject(new Error("Chưa chọn nhóm")),
     enabled: groupId != null,
   });
 
@@ -73,7 +76,7 @@ export function LiveBoardPage() {
 
       <div className="grid gap-4 md:grid-cols-2">
         {data.members.map((m) => (
-          <MemberCard key={m.user.userId} member={m} meUserId={meUserId} />
+          <MemberCard key={m.userId} member={m} meUserId={meUserId} />
         ))}
       </div>
     </div>

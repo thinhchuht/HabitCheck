@@ -11,7 +11,12 @@ export type FailReason = "LATE" | "MISSING" | "INSUFFICIENT" | "REJECTED";
 export type LedgerKind = "PENALTY" | "PAYMENT" | "ADJUSTMENT";
 export type UploadKind = "CHECKIN" | "CHECKOUT";
 export type TodayItemState = "PENDING" | "PASS" | "FAIL";
-export type ProofStatusFilter = "ALL" | "REPORTED" | "PENDING" | "APPROVED" | "REJECTED";
+export type ProofStatusFilter =
+  | "ALL"
+  | "REPORTED"
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED";
 export type MediaType = "image" | "video";
 
 // ---- DTOs ----
@@ -164,36 +169,40 @@ export interface TodayDto {
 
 export interface LiveBoardItem {
   activityId: string;
+  status: TodayItemState;
+  failReason: string | null;
   name: string;
   icon: string | null;
-  state: TodayItemState;
-  failReason: string | null;
   isLate: boolean;
 }
 
 export interface LiveMemberDto {
-  user: MemberDto & { online: boolean };
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  online: boolean;
   items: LiveBoardItem[];
-  passedCount: number;
-  totalCount: number;
   expectedPenalty: number;
 }
 
 export interface TickerItem {
+  checkinId: string;
   userId: string;
-  displayName: string;
+  userName: string;
   activityName: string;
-  action: "CHECKIN" | "CHECKOUT";
+  text: string;
   at: string;
+  thumbnailUrl: string | null;
 }
 
 export interface LiveBoardDto {
+  groupId: string;
+  groupName: string;
   date: string;
   serverTime: string;
-  timezone: "Asia/Ho_Chi_Minh";
   members: LiveMemberDto[];
-  ticker: TickerItem[];
   totalExpectedPenalty: number;
+  ticker: TickerItem[];
 }
 
 export interface ProofReport {

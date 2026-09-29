@@ -1,6 +1,8 @@
 namespace HabitCheckin.Application.Dtos;
 
-public sealed record LiveItemDto(string ActivityId, string Status, string? FailReason);
+public sealed record LiveItemDto(
+    string ActivityId, string Status, string? FailReason,
+    string Name, string? Icon, bool IsLate);
 
 public sealed record LiveMemberDto(
     string UserId,
@@ -23,6 +25,7 @@ public sealed record LiveBoardDto(
     string GroupId,
     string GroupName,
     string Date,
+    string ServerTime,
     List<LiveMemberDto> Members,
     long TotalExpectedPenalty,
     List<TickerItemDto> Ticker);

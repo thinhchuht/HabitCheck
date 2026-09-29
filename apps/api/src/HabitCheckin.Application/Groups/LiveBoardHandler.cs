@@ -76,7 +76,8 @@ public sealed class LiveBoardHandler(
                     var eval = ActivityEvaluator.Evaluate(a, today, userCheckins, tz);
                     evals.Add((a, eval));
                     var (state, failReason) = LiveStateHelper.Resolve(a, eval, userCheckins, today, now, tz);
-                    items.Add(new LiveItemDto(a.Id.ToString(), state, failReason));
+                    var isLate = LiveStateHelper.IsLate(a, eval, today, now, tz);
+                    items.Add(new LiveItemDto(a.Id.ToString(), state, failReason, a.Name, a.Icon, isLate));
                 }
                 expected = PenaltyCalculator.Calculate(
                     evals.Select(e => (e.Eval, e.Activity.OverridePenalty)), group.PenaltyTiers);
@@ -110,6 +111,6 @@ public sealed class LiveBoardHandler(
             .ToList();
 
         return new LiveBoardDto(request.GroupId.ToString(), group.Name, Fmt.Date(today),
-            memberDtos, totalExpectedPenalty, ticker);
+            Fmt.Iso(now), memberDtos, totalExpectedPenalty, ticker);
     }
 }

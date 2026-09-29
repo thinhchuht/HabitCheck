@@ -15,8 +15,11 @@ interface MemberCardProps {
 
 export function MemberCard({ member, meUserId }: MemberCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const { user, items, passedCount, totalCount, expectedPenalty } = member;
-  const isMe = user.userId === meUserId;
+  const { userId, displayName, avatarUrl, online, items, expectedPenalty } =
+    member;
+  const isMe = userId === meUserId;
+  const passedCount = items.filter((i) => i.status === "PASS").length;
+  const totalCount = items.length;
 
   return (
     <Card>
@@ -27,22 +30,26 @@ export function MemberCard({ member, meUserId }: MemberCardProps) {
       >
         <div className="relative shrink-0">
           <Avatar className="h-11 w-11">
-            {user.avatarUrl ? (
-              <AvatarImage src={user.avatarUrl} alt={user.displayName} />
+            {avatarUrl ? (
+              <AvatarImage src={avatarUrl} alt={displayName} />
             ) : null}
-            <AvatarFallback>{firstName(user.displayName).toUpperCase().slice(0, 1)}</AvatarFallback>
+            <AvatarFallback>
+              {firstName(displayName).toUpperCase().slice(0, 1)}
+            </AvatarFallback>
           </Avatar>
           <span
             className={cn(
               "absolute -right-0.5 -bottom-0.5 h-3.5 w-3.5 rounded-full border-2 border-white",
-              user.online ? "bg-emerald-500" : "bg-slate-300"
+              online ? "bg-emerald-500" : "bg-slate-300",
             )}
-            title={user.online ? "Đang online" : "Offline"}
+            title={online ? "Đang online" : "Offline"}
           />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <p className="truncate font-semibold text-slate-900">{user.displayName}</p>
+            <p className="truncate font-semibold text-slate-900">
+              {displayName}
+            </p>
             {isMe ? <Badge variant="outline">Bạn</Badge> : null}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -57,7 +64,7 @@ export function MemberCard({ member, meUserId }: MemberCardProps) {
         <ChevronDown
           className={cn(
             "h-5 w-5 shrink-0 text-slate-400 transition-transform",
-            expanded && "rotate-180"
+            expanded && "rotate-180",
           )}
         />
       </button>

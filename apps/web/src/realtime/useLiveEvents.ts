@@ -14,7 +14,12 @@ import type {
   ProofRejectedEvent,
   SessionStartedEvent,
 } from "@/types/api";
-import { invokeHub, onConnectionChange, onRealtimeEvent, startRealtime } from "./connection";
+import {
+  invokeHub,
+  onConnectionChange,
+  onRealtimeEvent,
+  startRealtime,
+} from "./connection";
 
 /**
  * Wires SignalR events for the selected group:
@@ -41,7 +46,7 @@ export function useLiveEvents(): void {
     const nameOf = (uid: string): string => {
       const live = queryClient.getQueryData<LiveBoardDto>(["live", groupId]);
       return (
-        live?.members.find((m) => m.user.userId === uid)?.user.displayName ?? "Thành viên"
+        live?.members.find((m) => m.userId === uid)?.displayName ?? "Thành viên"
       );
     };
 
@@ -55,7 +60,7 @@ export function useLiveEvents(): void {
         invalidate([["live", groupId], ["today"], ["proofs"]]);
         if (p.userId !== userId) {
           toast.success(
-            `${nameOf(p.userId)} vừa check-in "${p.activityName}" lúc ${fmtTime(p.checkinAt)}`
+            `${nameOf(p.userId)} vừa check-in "${p.activityName}" lúc ${fmtTime(p.checkinAt)}`,
           );
         }
       }),
@@ -77,7 +82,7 @@ export function useLiveEvents(): void {
           ["fund", groupId],
         ]);
         toast.error(
-          `Bằng chứng của ${nameOf(p.userId)} đã bị từ chối${p.reason ? `: ${p.reason}` : ""}`
+          `Bằng chứng của ${nameOf(p.userId)} đã bị từ chối${p.reason ? `: ${p.reason}` : ""}`,
         );
       }),
 
@@ -91,8 +96,8 @@ export function useLiveEvents(): void {
         if (p.userId === userId) {
           toast(
             `Kết quả ngày ${fmtDate(p.date)}: ${p.failedCount} hoạt động fail — phạt ${formatVND(
-              p.penaltyAmount
-            )} (${p.status}).`
+              p.penaltyAmount,
+            )} (${p.status}).`,
           );
         }
       }),
