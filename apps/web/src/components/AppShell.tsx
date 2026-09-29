@@ -30,7 +30,7 @@ const NAV_ITEMS = [
 function Logo() {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
+      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md shadow-indigo-500/25">
         <Flame className="h-5 w-5" />
       </span>
       <span className="text-base font-bold tracking-tight text-slate-900">
@@ -80,21 +80,31 @@ export function AppShell() {
               key={to}
               to={to}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${
                   isActive
-                    ? "bg-indigo-50 text-indigo-700"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    ? "bg-indigo-50 font-semibold text-indigo-700"
+                    : "font-medium text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
                 }`
               }
             >
-              <Icon className="h-5 w-5 shrink-0" />
-              {label}
+              {({ isActive }) => (
+                <>
+                  <Icon
+                    className={`h-5 w-5 shrink-0 ${
+                      isActive ? "text-indigo-600" : "text-slate-400"
+                    }`}
+                  />
+                  {label}
+                </>
+              )}
             </NavLink>
           ))}
           <GroupSwitcher />
         </nav>
-        <div className="border-t border-slate-100 px-4 py-4">
-          <UserChip />
+        <div className="border-t border-slate-100 px-3 py-3">
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
+            <UserChip />
+          </div>
         </div>
       </aside>
 

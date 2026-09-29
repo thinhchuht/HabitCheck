@@ -40,9 +40,20 @@ export function DeadlineCard({ item }: DeadlineCardProps) {
   }
   const inWindow = status === "countdown" || status === "grace";
 
+  const boxClass =
+    status === "pass"
+      ? "bg-emerald-50 ring-1 ring-inset ring-emerald-100"
+      : status === "missed"
+        ? "bg-rose-50 ring-1 ring-inset ring-rose-100"
+        : status === "countdown"
+          ? "bg-indigo-50 ring-1 ring-inset ring-indigo-100"
+          : status === "grace"
+            ? "bg-amber-50 ring-1 ring-inset ring-amber-100"
+            : "bg-slate-50";
+
   return (
     <div className="space-y-3">
-      <div className="rounded-xl bg-slate-50 px-4 py-3">
+      <div className={`rounded-xl px-4 py-3 ${boxClass}`}>
         {status === "no-deadline" ? (
           <p className="text-sm text-slate-500">Chưa đặt giờ hạn.</p>
         ) : status === "pass" ? (

@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { Check, Users } from "lucide-react";
+import { Check } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { checkinsApi } from "@/api/checkins";
 import { groupsApi } from "@/api/groups";
 import { Skeleton } from "@/components/ui/skeleton";
+import { groupAvatarClass, groupInitial } from "@/lib/group";
 import { useAppStore } from "@/store/app";
 
 interface GroupPendingItem {
@@ -108,10 +109,17 @@ export function GroupSwitcher() {
                       : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                   }`}
                 >
-                  <Users className="h-4 w-4 shrink-0" />
+                  <span
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${groupAvatarClass(g.id)}`}
+                  >
+                    {groupInitial(g.name)}
+                  </span>
                   <span className="min-w-0 flex-1 truncate">{g.name}</span>
                   {g.pending > 0 ? (
-                    <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-bold leading-none text-amber-700">
+                    <span
+                      className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-bold leading-none tabular-nums text-amber-700"
+                      aria-label={`${g.pending} việc chưa làm`}
+                    >
                       {g.pending}
                     </span>
                   ) : (

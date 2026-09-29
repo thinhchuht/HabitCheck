@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { groupAvatarClass, groupInitial } from "@/lib/group";
 import { useAppStore } from "@/store/app";
 import { useAuthStore } from "@/store/auth";
 import type { GroupDto } from "@/types/api";
@@ -121,18 +122,27 @@ export function OnboardingPage() {
                           key={g.id}
                           className="flex items-center justify-between gap-3 py-3"
                         >
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="truncate font-semibold text-slate-900">
-                                {g.name}
+                          <div className="flex min-w-0 items-center gap-3">
+                            <span
+                              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${groupAvatarClass(
+                                g.id,
+                              )}`}
+                            >
+                              {groupInitial(g.name)}
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="truncate font-semibold text-slate-900">
+                                  {g.name}
+                                </p>
+                                {isOwner ? (
+                                  <Badge variant="secondary">Chủ nhóm</Badge>
+                                ) : null}
+                              </div>
+                              <p className="mt-0.5 text-xs text-slate-500">
+                                {g.members.length} thành viên
                               </p>
-                              {isOwner ? (
-                                <Badge variant="secondary">Chủ nhóm</Badge>
-                              ) : null}
                             </div>
-                            <p className="mt-0.5 text-xs text-slate-500">
-                              {g.members.length} thành viên
-                            </p>
                           </div>
                           <Button
                             type="button"

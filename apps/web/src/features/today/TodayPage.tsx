@@ -7,6 +7,7 @@ import { getApiErrorMessage } from "@/api/client";
 import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CHALLENGE_STATUS_LABELS } from "@/lib/constants";
 import { fmtDayLong, formatVND } from "@/lib/format";
@@ -102,12 +103,9 @@ export function TodayPage() {
           title="Chưa có kỳ thử thách nào"
           description="Tạo kỳ thử thách với bảng lịch hoạt động trong ngày (giờ chính xác hoặc thời lượng) để cả nhóm cùng check-in."
           action={
-            <Link
-              to="/challenge"
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-            >
-              Tạo kỳ thử thách
-            </Link>
+            <Button asChild>
+              <Link to="/challenge">Tạo kỳ thử thách</Link>
+            </Button>
           }
         />
       ) : data.items.length === 0 ? (
@@ -116,12 +114,9 @@ export function TodayPage() {
           title="Kỳ thử thách chưa có hoạt động"
           description="Thêm hoạt động trong trang Thử thách."
           action={
-            <Link
-              to="/challenge"
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-            >
-              Thêm hoạt động
-            </Link>
+            <Button asChild>
+              <Link to="/challenge">Thêm hoạt động</Link>
+            </Button>
           }
         />
       ) : (

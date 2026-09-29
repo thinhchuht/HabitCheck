@@ -43,7 +43,9 @@ export function LoginPage() {
       }
       navigate("/onboarding", { replace: true });
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Đăng nhập thất bại. Vui lòng thử lại."));
+      toast.error(
+        getApiErrorMessage(err, "Đăng nhập thất bại. Vui lòng thử lại."),
+      );
     } finally {
       setBusy(false);
     }
@@ -52,21 +54,30 @@ export function LoginPage() {
   const clientConfigured = GOOGLE_CLIENT_ID !== "";
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-50 via-slate-50 to-white px-4">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-32 -left-32 h-80 w-80 rounded-full bg-indigo-200/40 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-32 -bottom-32 h-80 w-80 rounded-full bg-violet-200/40 blur-3xl"
+      />
+      <div className="relative w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg">
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-lg shadow-indigo-500/30">
             <Flame className="h-7 w-7" />
           </span>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
             Habit <span className="text-indigo-600">Check-in</span>
           </h1>
           <p className="text-center text-sm text-slate-500">
-            Theo dõi thói quen mỗi ngày, check-in bằng ảnh/video, cùng nhóm chịu phạt.
+            Theo dõi thói quen mỗi ngày, check-in bằng ảnh/video, cùng nhóm chịu
+            phạt.
           </p>
         </div>
 
-        <Card>
+        <Card className="border-slate-200/70 shadow-xl shadow-slate-900/5">
           <CardContent className="flex flex-col items-center gap-4 p-8">
             {busy ? (
               <p className="py-4 text-sm text-slate-500">Đang đăng nhập…</p>
@@ -80,7 +91,9 @@ export function LoginPage() {
                 onSuccess={(res) => {
                   if (res.credential) void handleCredential(res.credential);
                 }}
-                onError={() => toast.error("Google Sign-in bị lỗi. Vui lòng thử lại.")}
+                onError={() =>
+                  toast.error("Google Sign-in bị lỗi. Vui lòng thử lại.")
+                }
               />
             )}
             <p className="text-center text-xs text-slate-400">
@@ -92,8 +105,11 @@ export function LoginPage() {
         {!clientConfigured ? (
           <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
             <strong>Chưa cấu hình Google Client ID</strong> — đặt biến{" "}
-            <code className="rounded bg-amber-100 px-1">VITE_GOOGLE_CLIENT_ID</code> trong{" "}
-            <code className="rounded bg-amber-100 px-1">.env</code> rồi chạy lại ứng dụng.
+            <code className="rounded bg-amber-100 px-1">
+              VITE_GOOGLE_CLIENT_ID
+            </code>{" "}
+            trong <code className="rounded bg-amber-100 px-1">.env</code> rồi
+            chạy lại ứng dụng.
           </div>
         ) : null}
       </div>

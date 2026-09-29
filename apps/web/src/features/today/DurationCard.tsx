@@ -30,17 +30,27 @@ export function DurationCard({ item }: DurationCardProps) {
   );
   const firstAt = checkins.length > 0 ? checkins[0].checkinAt : null;
 
+  const done = item.state === "PASS";
+
   return (
     <div className="space-y-3">
-      <div className="rounded-xl bg-slate-50 px-4 py-3">
-        <p className="text-sm text-slate-600">
+      <div
+        className={`rounded-xl px-4 py-3 ${
+          done
+            ? "bg-emerald-50 ring-1 ring-inset ring-emerald-100"
+            : "bg-slate-50"
+        }`}
+      >
+        <p
+          className={`text-sm ${done ? "text-emerald-800" : "text-slate-600"}`}
+        >
           Thời lượng mục tiêu:{" "}
           <span className="font-semibold text-slate-900">
             {formatMinutesVN(target)}
           </span>
         </p>
         {firstAt ? (
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-slate-500">
             Đã check-in lúc {fmtTime(firstAt)}
           </p>
         ) : null}

@@ -55,7 +55,7 @@ export function ReviewPage() {
         <select
           value={memberId}
           onChange={(e) => setMemberId(e.target.value)}
-          className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm"
+          className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm transition-colors focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
           aria-label="Lọc theo thành viên"
         >
           <option value="">Tất cả thành viên</option>

@@ -22,11 +22,11 @@ export function MemberCard({ member, meUserId }: MemberCardProps) {
   const totalCount = items.length;
 
   return (
-    <Card>
+    <Card className="transition-shadow hover:shadow-md">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-3 p-4 text-left"
+        className="flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-colors hover:bg-slate-50/60"
       >
         <div className="relative shrink-0">
           <Avatar className="h-11 w-11">

@@ -15,9 +15,17 @@ export function WindowCard({ item }: WindowCardProps) {
   const { activity, state } = item;
   const firstAt = firstCheckinTime(item);
 
+  const done = state === "PASS";
+
   return (
     <div className="space-y-3">
-      <div className="rounded-xl bg-slate-50 px-4 py-3">
+      <div
+        className={`rounded-xl px-4 py-3 ${
+          done
+            ? "bg-emerald-50 ring-1 ring-inset ring-emerald-100"
+            : "bg-slate-50"
+        }`}
+      >
         <p className="text-sm text-slate-600">
           Khung giờ{" "}
           <span className="font-semibold text-slate-900">
@@ -25,7 +33,7 @@ export function WindowCard({ item }: WindowCardProps) {
           </span>
         </p>
         {firstAt ? (
-          <p className="mt-1 text-xs text-slate-400">Check-in lúc {firstAt}</p>
+          <p className="mt-1 text-xs text-slate-500">Check-in lúc {firstAt}</p>
         ) : null}
       </div>
 
