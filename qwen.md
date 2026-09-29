@@ -500,22 +500,22 @@ Base: `/api`, auth Bearer JWT, lỗi trả `ProblemDetails` (RFC 7807). OpenAPI 
 
 ### Check-in
 
-| Method | Path                      | Mô tả                                                                                                   |
-| ------ | ------------------------- | ------------------------------------------------------------------------------------------------------- |
-| GET    | `/today`                  | Hoạt động hôm nay + trạng thái, phiên đang mở                                                           |
-| POST   | `/uploads/intent`         | `{activityId, kind}` → chữ ký Cloudinary                                                                |
-| POST   | `/checkins`               | `{activityId, intentId, publicId, note}` — DEADLINE: chỉ nhận trong ±5 phút quanh mốc giờ, khác thì 422 |
-| POST   | `/checkins/{id}/checkout` | `{intentId, publicId}`                                                                                  |
-| GET    | `/checkins?userId=&date=` | Lịch sử (cùng nhóm mới xem được)                                                                        |
+| Method | Path                                  | Mô tả                                                                                                   |
+| ------ | ------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| GET    | `/today?groupId=`                     | Hoạt động hôm nay + trạng thái, check-in trong ngày (groupId bắt buộc)                                  |
+| POST   | `/uploads/intent`                     | `{activityId, kind}` → chữ ký Cloudinary                                                                |
+| POST   | `/checkins`                           | `{activityId, intentId, publicId, note}` — DEADLINE: chỉ nhận trong ±5 phút quanh mốc giờ, khác thì 422 |
+| POST   | `/checkins/{id}/checkout`             | `{intentId, publicId}`                                                                                  |
+| GET    | `/checkins?userId=&date=&activityId=` | Lịch sử (cùng nhóm mới xem được)                                                                        |
 
 ### Bằng chứng (trang check-in — chỉ đọc)
 
-| Method | Path                                | Mô tả                                                          |
-| ------ | ----------------------------------- | -------------------------------------------------------------- |
-| GET    | `/groups/{id}/proofs?date=&status=` | Feed bằng chứng check-in của nhóm theo ngày (mặc định hôm nay) |
-| POST   | `/checkins/{id}/report`             | Giữ trong code — UI không dùng                                 |
-| POST   | `/checkins/{id}/approve`            | Giữ trong code — UI không dùng                                 |
-| POST   | `/checkins/{id}/reject`             | Giữ trong code — UI không dùng                                 |
+| Method | Path                                        | Mô tả                                                                       |
+| ------ | ------------------------------------------- | --------------------------------------------------------------------------- |
+| GET    | `/groups/{id}/proofs?date=&status=&userId=` | Feed bằng chứng check-in của nhóm theo ngày / thành viên (mặc định hôm nay) |
+| POST   | `/checkins/{id}/report`                     | Giữ trong code — UI không dùng                                              |
+| POST   | `/checkins/{id}/approve`                    | Giữ trong code — UI không dùng                                              |
+| POST   | `/checkins/{id}/reject`                     | Giữ trong code — UI không dùng                                              |
 
 ### Stats & Fund
 

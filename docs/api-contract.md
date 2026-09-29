@@ -21,7 +21,7 @@
   }
   ```
 
-  - `400` validation (kèm `errors`), `401` chưa đăng nhập/token hết hạn, `403` không có quyền, `404` không tìm thấy, `409` xung đột (challenge chồng ngày, thành viên tồn tại...), `422` vi phạm nghiệp vụ (challenge đã khoá, intent hết hạn, phiên đang mở...).
+  - `400` validation (kèm `errors`), `401` chưa đăng nhập/token hết hạn, `403` không có quyền, `404` không tìm thấy, `409` xung đột (challenge chồng ngày, thành viên tồn tại, đã check-in trong ngày...), `422` vi phạm nghiệp vụ (challenge đã khoá, intent hết hạn, ngoài cửa sổ check-in ±5 phút của DEADLINE...).
   - `detail` viết bằng **tiếng Việt**.
 
 - Enum (giá trị chuỗi):
@@ -67,7 +67,7 @@ ActivityDto = {
   id: string; challengeId: string;
   name: string; description: string | null; icon: string | null; // icon: emoji hoặc tên icon
   type: ActivityType;
-  deadlineTime: string | null; graceMinutes: number;      // DEADLINE
+  deadlineTime: string | null; graceMinutes: number;      // DEADLINE — không còn dùng (cửa sổ ±5 phút cố định), giữ cho tương thích DB
   targetMinutes: number | null; // DURATION: thời lượng mục tiêu (phút, hiển thị); check-in là tick + 1 ảnh
   minSessionMinutes: number | null; // deprecated — luôn null với hoạt động mới
   windowStart: string | null; windowEnd: string | null;   // WINDOW
@@ -107,7 +107,7 @@ TodayItemDto = {
   state: "PENDING" | "PASS" | "FAIL";
   failReason: "LATE" | "MISSING" | "INSUFFICIENT" | "REJECTED" | null;
   isLate: boolean;                 // DEADLINE: đã quá hạn và chưa đạt
-  deadlineAt: string | null;       // instant tuyệt đối (UTC) = deadline_time + grace hôm nay (giờ VN)
+  deadlineAt: string | null;       // instant tuyệt đối (UTC) = deadline_time hôm nay (giờ VN) — không còn cộng grace; frontend tự tính cửa sổ ±5 phút
   session: {                       // deprecated — luôn null (DURATION giờ là tick + 1 ảnh, không còn phiên)
     openCheckinId: string | null; startedAt: string | null;
     totalTodayMinutes: number; targetMinutes: number;
@@ -125,18 +125,32 @@ TodayDto = {
   result: { total: number; passed: number; failed: number; penalty: number; status: ResultStatus } | null; // có khi ngày đã được chốt tạm thời
 }
 
-LiveMemberDto = {
-  user: MemberDto & { online: boolean };
-  items: Array<{ activityId: string; name: string; icon: string | null; state: "PENDING" | "PASS" | "FAIL"; failReason: string | null; isLate: boolean }>;
-  passedCount: number; totalCount: number; expectedPenalty: number;
+LiveItemDto = {
+  activityId: string;
+  status: "PENDING" | "PASS" | "FAIL";
+  failReason: string | null;
+  name: string; icon: string | null;
+  isLate: boolean;                 // DEADLINE: đã qua mốc giờ và chưa đạt
 }
 
-TickerItem = { userId: string; displayName: string; activityName: string; action: "CHECKIN" | "CHECKOUT"; at: string };
+LiveMemberDto = {                  // phẳng (không lồng `user`)
+  userId: string; displayName: string; avatarUrl: string | null;
+  online: boolean;
+  items: LiveItemDto[];
+  expectedPenalty: number;         // phạt dự kiến hôm nay nếu ngày kết thúc ở trạng thái hiện tại
+}
+
+TickerItem = {
+  checkinId: string; userId: string; userName: string; activityName: string;
+  text: string;                    // chữ do server định dạng sẵn, VD "An vừa check-in Dậy sớm lúc 05:48"
+  at: string; thumbnailUrl: string | null;
+};
 
 LiveBoardDto = {
-  date: string; serverTime: string; timezone: "Asia/Ho_Chi_Minh";
+  groupId: string; groupName: string;
+  date: string; serverTime: string;
   members: LiveMemberDto[];
-  ticker: TickerItem[];            // 20 sự kiện gần nhất hôm nay
+  ticker: TickerItem[];            // tối đa 20 sự kiện gần nhất hôm nay, mới nhất trước
   totalExpectedPenalty: number;
 }
 
@@ -145,13 +159,13 @@ ProofFeedItemDto = {
   user: { userId: string; displayName: string; avatarUrl: string | null };
   activity: { name: string; icon: string | null; type: ActivityType };
   challenge: { id: string; title: string; status: ChallengeStatus };
-  reports: Array<{ reason: string; reporterName: string; at: string }>;
-  review: { action: "APPROVE" | "REJECT"; reason: string | null; reviewerName: string; at: string } | null;
+  reports: Array<{ reason: string; reporterName: string; at: string }>;  // vẫn trả về — UI không hiển thị
+  review: { action: "APPROVE" | "REJECT"; reason: string | null; reviewerName: string; at: string } | null; // vẫn trả về — UI không hiển thị
 }
 
 ProofFeedDto = {
   date: string;
-  finalizeAt: string | null;       // 12:00 (giờ VN) ngày hôm sau — hết hạn duyệt; null nếu đã FINAL
+  finalizeAt: string | null;       // 12:00 (giờ VN) ngày hôm sau — lúc kết quả ngày chốt FINAL; null nếu đã FINAL
   items: ProofFeedItemDto[];
 }
 
@@ -243,7 +257,7 @@ FundDto = {
 {
   name: string; description?: string | null; icon?: string | null;
   type: ActivityType;
-  deadlineTime?: string | null; graceMinutes?: number;   // DEADLINE: deadlineTime bắt buộc
+  deadlineTime?: string | null; graceMinutes?: number;   // DEADLINE: deadlineTime bắt buộc — graceMinutes không còn dùng (cửa sổ ±5 phút cố định)
   targetMinutes?: number | null; // DURATION: targetMinutes > 0 bắt buộc (thời lượng mô tả, VD 60 = 1 giờ)
   minSessionMinutes?: number | null; // deprecated — server bỏ qua
   windowStart?: string | null; windowEnd?: string | null; // WINDOW: cả hai bắt buộc, windowEnd > windowStart
@@ -254,22 +268,24 @@ FundDto = {
 
 ### Check-in
 
-| Method | Path                                  | Request                                                                  | Response                                                                                                                                                                                  |
-| ------ | ------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| GET    | `/today`                              | —                                                                        | `200 TodayDto`                                                                                                                                                                            |
-| POST   | `/uploads/intent`                     | `{ activityId: string; kind: "CHECKIN" \| "CHECKOUT" }`                  | `201 UploadIntentResponse`. Rate limit 30/lphút/user. Validate: challenge ACTIVE, hôm nay trong khoảng ngày, activity đúng loại (CHECKOUT legacy: chỉ cho DURATION đang có phiên OPEN cũ) |
-| POST   | `/checkins`                           | `{ activityId: string; intentId: string; publicId: string; note?: string | null }`                                                                                                                                                                                   | `201 CheckInDto`. `checkinAt = intent_at`. Mọi loại: 1 check-in hợp lệ duy nhất/ngày — `409` nếu đã check-in (trừ check-in REJECTED) |
-| POST   | `/checkins/{id}/checkout`             | `{ intentId: string; publicId: string }`                                 | `200 CheckInDto` (status `COMPLETED`, `durationMinutes` = phút từ checkin → checkout, làm tròn lên). Legacy — chỉ cho phiên OPEN tạo trước thay đổi "tick + 1 ảnh"                        |
-| GET    | `/checkins?userId=&date=&activityId?` | query params                                                             | `200 CheckInDto[]` (chỉ thành viên cùng nhóm xem được userId khác)                                                                                                                        |
+| Method | Path                                  | Request                                                                             | Response                                                                                                                                                                                                                                     |
+| ------ | ------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/today?groupId=`                     | `groupId` **bắt buộc**                                                              | `200 TodayDto`                                                                                                                                                                                                                               |
+| POST   | `/uploads/intent`                     | `{ activityId: string; kind: "CHECKIN" \| "CHECKOUT" }`                             | `200 UploadIntentResponse`. Rate limit 30/lphút/user. Validate: challenge ACTIVE, hôm nay trong khoảng ngày, activity đúng loại (CHECKOUT legacy: chỉ cho DURATION đang có phiên OPEN cũ)                                                    |
+| POST   | `/checkins`                           | `{ activityId: string; intentId: string; publicId: string; note?: string \| null }` | `201 CheckInDto`. `checkinAt = intent_at`. Mọi loại: 1 check-in hợp lệ duy nhất/ngày — `409` nếu đã check-in (trừ check-in REJECTED). DEADLINE: `422` nếu ngoài khung ±5 phút quanh mốc giờ ("Chưa đến giờ check-in…" / "Quá giờ check-in…") |
+| POST   | `/checkins/{id}/checkout`             | `{ intentId: string; publicId: string }`                                            | `200 CheckInDto` (status `COMPLETED`, `durationMinutes` = phút từ checkin → checkout, làm tròn lên). Legacy — chỉ cho phiên OPEN tạo trước thay đổi "tick + 1 ảnh"                                                                           |
+| GET    | `/checkins?userId=&date=&activityId?` | query params                                                                        | `200 CheckInDto[]` (chỉ thành viên cùng nhóm xem được userId khác)                                                                                                                                                                           |
 
-### Review (Trang kiểm tra)
+### Bằng chứng (trang check-in — chỉ đọc)
 
-| Method | Path                                        | Request                                                                                                               | Response                                                                                                                                                                                                   |
-| ------ | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/groups/{id}/proofs?date=&status=&userId?` | `status`: `ALL` \| `REPORTED` \| `PENDING` \| `APPROVED` \| `REJECTED` (mặc định `ALL`); `date` mặc định hôm nay (VN) | `200 ProofFeedDto`                                                                                                                                                                                         |
-| POST   | `/checkins/{id}/report`                     | `{ reason: string }`                                                                                                  | `200 ProofFeedItemDto` (bất kỳ thành viên cùng nhóm, chỉ khi ngày chưa FINAL)                                                                                                                              |
-| POST   | `/checkins/{id}/approve`                    | —                                                                                                                     | `200 ProofFeedItemDto` (chỉ OWNER/ADMIN, chỉ khi ngày chưa FINAL)                                                                                                                                          |
-| POST   | `/checkins/{id}/reject`                     | `{ reason: string }`                                                                                                  | `200 ProofFeedItemDto` (chỉ OWNER/ADMIN, chỉ khi ngày chưa FINAL). Check-in chuyển `REJECTED`, **tính lại ngay** `daily_results` PROVISIONAL của ngày đó, broadcast `DailyResultUpdated` + `ProofRejected` |
+Trang bằng chứng là **chỉ đọc**: bằng chứng hợp lệ ngay khi upload, UI không dùng report/approve/reject (3 endpoint dưới vẫn giữ trong code).
+
+| Method | Path                                        | Request                                                                                                                                             | Response                                                                                                                                                                                                                 |
+| ------ | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/groups/{id}/proofs?date=&status=&userId?` | `status`: `ALL` \| `REPORTED` \| `PENDING` \| `APPROVED` \| `REJECTED` (mặc định `ALL`); `date` mặc định hôm nay (VN); `userId` lọc theo thành viên | `200 ProofFeedDto`                                                                                                                                                                                                       |
+| POST   | `/checkins/{id}/report`                     | `{ reason: string }`                                                                                                                                | `204` — bất kỳ thành viên cùng nhóm, chỉ khi ngày chưa FINAL. Giữ trong code, UI không dùng                                                                                                                              |
+| POST   | `/checkins/{id}/approve`                    | `{ reason?: string \| null }` (body tuỳ chọn)                                                                                                       | `204` — chỉ OWNER/ADMIN, chỉ khi ngày chưa FINAL. Giữ trong code, UI không dùng                                                                                                                                          |
+| POST   | `/checkins/{id}/reject`                     | `{ reason?: string \| null }` (bỏ trống → "Bị từ chối")                                                                                             | `204` — chỉ OWNER/ADMIN, chỉ khi ngày chưa FINAL. Giữ trong code, UI không dùng. Check-in chuyển `REJECTED`, **tính lại ngay** `daily_results` PROVISIONAL của ngày đó, broadcast `DailyResultUpdated` + `ProofRejected` |
 
 ### Stats & Fund
 

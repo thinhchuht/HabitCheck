@@ -14,8 +14,9 @@ public sealed class ReviewsController(ISender sender) : ControllerBase
     [HttpGet("groups/{groupId:guid}/proofs")]
     [Authorize(Policy = "GroupMember")]
     public async Task<ActionResult<ProofFeedDto>> Proofs(
-        Guid groupId, [FromQuery] string? date, [FromQuery] string? status, CancellationToken ct) =>
-        Ok(await sender.Send(new GetProofFeedQuery(groupId, date, status), ct));
+        Guid groupId, [FromQuery] string? date, [FromQuery] string? status,
+        [FromQuery] string? userId, CancellationToken ct) =>
+        Ok(await sender.Send(new GetProofFeedQuery(groupId, date, status, userId), ct));
 
     [HttpPost("checkins/{checkinId:guid}/report")]
     public async Task<IActionResult> Report(Guid checkinId, [FromBody] ReportProofRequest req, CancellationToken ct)

@@ -12,7 +12,7 @@ namespace HabitCheckin.Application.Reviews;
 
 // ---------- Proof feed ----------
 
-public sealed record GetProofFeedQuery(Guid GroupId, string? Date, string? Status) : IRequest<ProofFeedDto>;
+public sealed record GetProofFeedQuery(Guid GroupId, string? Date, string? Status, string? UserId) : IRequest<ProofFeedDto>;
 
 public sealed class GetProofFeedHandler(IAppDbContext db, ICurrentUser user, IClock clock)
     : IRequestHandler<GetProofFeedQuery, ProofFeedDto>
@@ -34,12 +34,24 @@ public sealed class GetProofFeedHandler(IAppDbContext db, ICurrentUser user, ICl
                 });
         }
 
+        Guid? filterUserId = null;
+        if (!string.IsNullOrWhiteSpace(request.UserId))
+        {
+            if (!Guid.TryParse(request.UserId, out var parsed))
+                throw new Common.ValidationException(new Dictionary<string, string[]>
+                {
+                    ["UserId"] = ["userId không hợp lệ"]
+                });
+            filterUserId = parsed;
+        }
+
         var checkins = await db.CheckIns.AsNoTracking()
             .Include(c => c.Activity).ThenInclude(a => a!.Challenge)
             .Include(c => c.CheckinMedia)
             .Include(c => c.CheckoutMedia)
             .Include(c => c.User)
-            .Where(c => c.LocalDate == date && c.Activity.Challenge.GroupId == request.GroupId)
+            .Where(c => c.LocalDate == date && c.Activity.Challenge.GroupId == request.GroupId
+                        && (filterUserId == null || c.UserId == filterUserId.Value))
             .OrderByDescending(c => c.CheckinAt)
             .ToListAsync(ct);
 
