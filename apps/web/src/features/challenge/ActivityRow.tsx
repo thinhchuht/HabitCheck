@@ -2,6 +2,7 @@ import { Clock, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ACTIVITY_TYPE_LABELS, PROOF_TYPE_LABELS } from "@/lib/constants";
+import { fmtTimeOnly } from "@/lib/format";
 import { isEmojiLike } from "@/lib/utils";
 import type { ActivityDto } from "@/types/api";
 
@@ -9,11 +10,11 @@ import type { ActivityDto } from "@/types/api";
 export function activitySummary(a: ActivityDto): string {
   switch (a.type) {
     case "DEADLINE":
-      return `trước ${a.deadlineTime ?? "…"} (chỉ nhận ±5 phút)`;
+      return `trước ${fmtTimeOnly(a.deadlineTime)} (chỉ nhận ±5 phút)`;
     case "DURATION":
       return `${a.targetMinutes ?? 0} phút/ngày — tick + 1 ảnh`;
     case "WINDOW":
-      return `khung ${a.windowStart ?? "…"} – ${a.windowEnd ?? "…"}`;
+      return `khung ${fmtTimeOnly(a.windowStart)} – ${fmtTimeOnly(a.windowEnd)}`;
   }
 }
 

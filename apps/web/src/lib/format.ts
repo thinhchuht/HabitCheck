@@ -51,6 +51,14 @@ export function fmtTimeSec(value?: string | number | null): string {
   return vn(value).format("HH:mm:ss");
 }
 
+/** "06:00" — cho chuỗi time-only từ API ("12:00:00" / "12:00"), không phải datetime. */
+export function fmtTimeOnly(value?: string | null): string {
+  if (value == null) return "…";
+  const m = /^(\d{1,2}):(\d{2})/.exec(value);
+  if (!m) return value;
+  return `${m[1].padStart(2, "0")}:${m[2]}`;
+}
+
 /** "25/09 18:05" */
 export function fmtDateTime(value?: string | number | null): string {
   return vn(value).format("DD/MM HH:mm");

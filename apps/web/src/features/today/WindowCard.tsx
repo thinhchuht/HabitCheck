@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { fmtTime } from "@/lib/format";
+import { fmtTimeOnly } from "@/lib/format";
 import type { TodayItemDto } from "@/types/api";
 import { CheckInDialog } from "./CheckInDialog";
 import { firstCheckinTime } from "./TodayItemCard";
@@ -29,7 +29,8 @@ export function WindowCard({ item }: WindowCardProps) {
         <p className="text-sm text-slate-600">
           Khung giờ{" "}
           <span className="font-semibold text-slate-900">
-            {fmtTime(activity.windowStart)} – {fmtTime(activity.windowEnd)}
+            {fmtTimeOnly(activity.windowStart)} –{" "}
+            {fmtTimeOnly(activity.windowEnd)}
           </span>
         </p>
         {firstAt ? (
