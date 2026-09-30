@@ -11,8 +11,10 @@ import {
   UsersRound,
   Wallet,
 } from "lucide-react";
+import { useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { authApi } from "@/api/auth";
+import { meApi } from "@/api/me";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -158,6 +160,26 @@ function UserMenu({ compact = false }: { compact?: boolean }) {
 
 export function AppShell() {
   useLiveEvents();
+  const accessToken = useAuthStore((s) => s.accessToken);
+  const setUser = useAuthStore((s) => s.setUser);
+
+  // Sync user từ server mỗi lần mở app: user trong store persist có thể lỗi thời
+  // (avatar/tên đổi từ thiết bị khác) → gây hiện tượng avatar "lúc có lúc không".
+  useEffect(() => {
+    if (!accessToken) return;
+    let cancelled = false;
+    meApi
+      .get()
+      .then((me) => {
+        if (!cancelled) setUser(me);
+      })
+      .catch(() => {
+        // Giữ user local; interceptor axios xử lý token hết hạn.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, setUser]);
 
   return (
     <div className="min-h-screen">
