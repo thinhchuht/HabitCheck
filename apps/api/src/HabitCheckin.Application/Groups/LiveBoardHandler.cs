@@ -37,11 +37,13 @@ public sealed class LiveBoardHandler(
             .Where(u => members.Select(m => m.UserId).Contains(u.Id))
             .ToDictionaryAsync(u => u.Id, ct);
 
-        // Challenge đang active của từng thành viên phủ hôm nay
+        // Challenge đang active của từng thành viên phủ hôm nay — PHẢI lọc theo nhóm,
+        // không thì kỳ của cùng thành viên ở nhóm khác bị trộn vào bảng này.
         var userIds = members.Select(m => m.UserId).ToList();
         var challenges = await db.Challenges.AsNoTracking()
             .Include(c => c.Activities)
-            .Where(c => c.Status == ChallengeStatus.Active
+            .Where(c => c.GroupId == request.GroupId
+                        && c.Status == ChallengeStatus.Active
                         && c.StartDate <= today && c.EndDate >= today
                         && userIds.Contains(c.UserId))
             .ToListAsync(ct);
