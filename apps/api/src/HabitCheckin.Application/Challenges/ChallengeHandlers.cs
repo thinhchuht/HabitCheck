@@ -104,6 +104,38 @@ public sealed class GetMyChallengesHandler(IAppDbContext db, ICurrentUser user)
     }
 }
 
+// ---------- GetGroupChallenges (xem kỳ của mọi thành viên trong nhóm) ----------
+
+public sealed record GetGroupChallengesQuery(Guid GroupId) : IRequest<List<ChallengeDto>>;
+
+public sealed class GetGroupChallengesHandler(IAppDbContext db, ICurrentUser user)
+    : IRequestHandler<GetGroupChallengesQuery, List<ChallengeDto>>
+{
+    public async Task<List<ChallengeDto>> Handle(GetGroupChallengesQuery request, CancellationToken ct)
+    {
+        var isMember = await db.GroupMembers.AnyAsync(m => m.GroupId == request.GroupId && m.UserId == user.Id, ct);
+        if (!isMember) throw new UnauthorizedException("Bạn không phải thành viên của nhóm");
+
+        // ACTIVE trước, rồi DRAFT, sau đó COMPLETED — cùng nhóm trạng thái thì kỳ bắt đầu muộn hơn lên trước.
+        var list = await db.Challenges.AsNoTracking()
+            .Include(c => c.Activities)
+            .Where(c => c.GroupId == request.GroupId)
+            .OrderBy(c => c.Status == ChallengeStatus.Active ? 0 : c.Status == ChallengeStatus.Draft ? 1 : 2)
+            .ThenByDescending(c => c.StartDate)
+            .ToListAsync(ct);
+        foreach (var c in list)
+            c.Activities.Sort((a, b) => a.SortOrder.CompareTo(b.SortOrder));
+
+        var ownerIds = list.Select(c => c.UserId).Distinct().ToList();
+        var names = await db.Users.AsNoTracking()
+            .Where(u => ownerIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.DisplayName, ct);
+        return list
+            .Select(c => c.ToDto(names.TryGetValue(c.UserId, out var n) ? n : "…", c.Activities))
+            .ToList();
+    }
+}
+
 // ---------- GetChallenge (thành viên nhóm xem được challenge của người khác) ----------
 
 public sealed record GetChallengeQuery(Guid Id) : IRequest<ChallengeDto>;

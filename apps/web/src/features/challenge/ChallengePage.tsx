@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { History, Lock, Plus, Save } from "lucide-react";
+import { ChevronDown, History, Lock, Plus, Save, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { challengesApi } from "@/api/challenges";
@@ -28,8 +28,16 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CHALLENGE_STATUS_LABELS } from "@/lib/constants";
 import { fmtDate, vnNow } from "@/lib/format";
+import { groupAvatarClass, groupInitial } from "@/lib/group";
+import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app";
-import type { ActivityDto, ChallengeDto, PenaltyTiers } from "@/types/api";
+import { useAuthStore } from "@/store/auth";
+import type {
+  ActivityDto,
+  ChallengeDto,
+  ChallengeStatus,
+  PenaltyTiers,
+} from "@/types/api";
 import { ActivityFormDialog } from "./ActivityFormDialog";
 import { ActivityRow } from "./ActivityRow";
 import { PenaltyPreview } from "./PenaltyPreview";
@@ -341,6 +349,125 @@ function DraftSection({
   );
 }
 
+const GROUP_CHALLENGE_BADGE: Record<
+  ChallengeStatus,
+  "success" | "warning" | "secondary" | "outline"
+> = {
+  ACTIVE: "success",
+  DRAFT: "warning",
+  COMPLETED: "secondary",
+  CANCELLED: "outline",
+};
+
+/** Xem kỳ thử thách + bảng lịch hoạt động của các thành viên khác trong nhóm. */
+function GroupChallengesSection({ groupId }: { groupId: string | null }) {
+  const meUserId = useAuthStore((s) => s.user?.id ?? null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ["challenges", groupId, "group"],
+    queryFn: () => challengesApi.allInGroup(groupId!),
+    enabled: groupId != null,
+  });
+
+  function toggle(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const others = (data ?? []).filter((c) => c.userId !== meUserId);
+
+  if (isLoading) {
+    return <Skeleton className="h-40 w-full rounded-2xl" />;
+  }
+  if (isError) {
+    return (
+      <p className="text-sm text-rose-600">
+        Không tải được kỳ của thành viên: {getApiErrorMessage(error)}
+      </p>
+    );
+  }
+  if (others.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Users className="h-4 w-4" />
+          Kỳ của thành viên ({others.length})
+        </CardTitle>
+        <CardDescription>
+          Xem kỳ thử thách và bảng lịch hoạt động của các thành viên khác trong
+          nhóm.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {others.map((c) => {
+          const isExpanded = expanded.has(c.id);
+          return (
+            <div
+              key={c.id}
+              className="overflow-hidden rounded-xl border border-slate-200"
+            >
+              <button
+                type="button"
+                onClick={() => toggle(c.id)}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50/60"
+              >
+                <span
+                  className={cn(
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-bold",
+                    groupAvatarClass(c.userId),
+                  )}
+                >
+                  {groupInitial(c.ownerName)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="truncate font-semibold text-slate-900">
+                      {c.title}
+                    </span>
+                    <Badge variant={GROUP_CHALLENGE_BADGE[c.status]}>
+                      {CHALLENGE_STATUS_LABELS[c.status]}
+                    </Badge>
+                  </div>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {c.ownerName} • {fmtDate(c.startDate)} →{" "}
+                    {fmtDate(c.endDate)} • {c.activities.length} hoạt động
+                  </p>
+                </div>
+                <ChevronDown
+                  className={cn(
+                    "h-5 w-5 shrink-0 text-slate-400 transition-transform",
+                    isExpanded && "rotate-180",
+                  )}
+                />
+              </button>
+              {isExpanded ? (
+                <div className="space-y-2 border-t border-slate-100 bg-slate-50/40 px-4 py-3">
+                  {c.activities.length === 0 ? (
+                    <p className="py-1 text-sm text-slate-400">
+                      Kỳ này chưa có hoạt động.
+                    </p>
+                  ) : (
+                    c.activities.map((a) => (
+                      <ActivityRow key={a.id} activity={a} />
+                    ))
+                  )}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
 function ActiveSection({ challenge }: { challenge: ChallengeDto }) {
   const activities = sortedActivities(challenge);
   return (
@@ -414,6 +541,8 @@ export function ChallengePage() {
         title="Kỳ thử thách"
         subtitle="Định nghĩa bảng lịch hoạt động trong ngày — giờ chính xác hoặc thời lượng — kèm bằng chứng (tick + chụp ảnh) cho cả nhóm."
       />
+
+      <GroupChallengesSection groupId={groupId} />
 
       {active ? <ActiveSection challenge={active} /> : null}
       {draft ? (

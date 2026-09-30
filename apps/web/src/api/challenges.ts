@@ -20,9 +20,18 @@ export const challengesApi = {
       .then((r) => r.data);
   },
 
+  /** GET /challenges/group/{groupId} — tất cả kỳ của thành viên nhóm. */
+  allInGroup(groupId: string): Promise<ChallengeDto[]> {
+    return api
+      .get<ChallengeDto[]>(`/challenges/group/${groupId}`)
+      .then((r) => r.data);
+  },
+
   /** PATCH /challenges/{id} — DRAFT only. */
   update(id: string, payload: UpdateChallengeRequest): Promise<ChallengeDto> {
-    return api.patch<ChallengeDto>(`/challenges/${id}`, payload).then((r) => r.data);
+    return api
+      .patch<ChallengeDto>(`/challenges/${id}`, payload)
+      .then((r) => r.data);
   },
 
   /** DELETE /challenges/{id} — DRAFT only (cancels it). */
@@ -41,10 +50,13 @@ export const challengesApi = {
   updateActivity(
     challengeId: string,
     activityId: string,
-    input: ActivityInput
+    input: ActivityInput,
   ): Promise<ActivityDto> {
     return api
-      .put<ActivityDto>(`/challenges/${challengeId}/activities/${activityId}`, input)
+      .put<ActivityDto>(
+        `/challenges/${challengeId}/activities/${activityId}`,
+        input,
+      )
       .then((r) => r.data);
   },
 
@@ -58,7 +70,9 @@ export const challengesApi = {
   /** PUT /challenges/{id}/activities/order — DRAFT only. */
   reorder(challengeId: string, activityIds: string[]): Promise<ActivityDto[]> {
     return api
-      .put<ActivityDto[]>(`/challenges/${challengeId}/activities/order`, { activityIds })
+      .put<
+        ActivityDto[]
+      >(`/challenges/${challengeId}/activities/order`, { activityIds })
       .then((r) => r.data);
   },
 };

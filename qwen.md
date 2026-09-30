@@ -491,6 +491,7 @@ Base: `/api`, auth Bearer JWT, lỗi trả `ProblemDetails` (RFC 7807). OpenAPI 
 | ------ | ----------------------------------- | -------------------------------------- |
 | POST   | `/challenges`                       | `{groupId, title, startDate, endDate}` |
 | GET    | `/challenges/mine?groupId=`         | Danh sách của tôi                      |
+| GET    | `/challenges/group/{groupId}`       | Kỳ của mọi thành viên nhóm (chỉ xem)   |
 | PATCH  | `/challenges/{id}`                  | Chỉ khi DRAFT                          |
 | DELETE | `/challenges/{id}`                  | Huỷ khi DRAFT                          |
 | POST   | `/challenges/{id}/activities`       | Chỉ khi DRAFT                          |
@@ -576,6 +577,7 @@ Server đẩy về group:
 - Xem trước bảng phạt của nhóm.
 - Badge "Sẽ khoá lúc 00:00 dd/MM" và hộp xác nhận khi DRAFT; khi ACTIVE hiển thị chế độ chỉ đọc 🔒.
 - Lịch sử các kỳ đã qua.
+- **Kỳ của thành viên**: khối riêng liệt kê kỳ + bảng lịch hoạt động của các thành viên khác trong nhóm (chỉ xem, bấm để mở rộng xem hoạt động).
 
 ### 7.4 Live board (realtime nhóm)
 

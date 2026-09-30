@@ -240,16 +240,17 @@ FundDto = {
 
 ### Challenges & Activities
 
-| Method | Path                                       | Request                                  | Response                                                                             |
-| ------ | ------------------------------------------ | ---------------------------------------- | ------------------------------------------------------------------------------------ |
-| POST   | `/challenges`                              | `{ groupId, title, startDate, endDate }` | `201 ChallengeDto`. `409` nếu đã có challenge ACTIVE hoặc chồng ngày trong cùng nhóm |
-| GET    | `/challenges/mine?groupId=`                | —                                        | `200 ChallengeDto[]` (theo `createdAt` giảm)                                         |
-| PATCH  | `/challenges/{id}`                         | `{ title?; startDate?; endDate? }`       | `200 ChallengeDto` — **chỉ khi DRAFT**, `422` nếu đã ACTIVE                          |
-| DELETE | `/challenges/{id}`                         | —                                        | `204` (chỉ DRAFT → chuyển `CANCELLED`)                                               |
-| POST   | `/challenges/{id}/activities`              | `ActivityInput` (bên dưới)               | `201 ActivityDto` — chỉ DRAFT                                                        |
-| PUT    | `/challenges/{id}/activities/{activityId}` | `ActivityInput`                          | `200 ActivityDto` — chỉ DRAFT                                                        |
-| DELETE | `/challenges/{id}/activities/{activityId}` | —                                        | `204` — chỉ DRAFT                                                                    |
-| PUT    | `/challenges/{id}/activities/order`        | `{ activityIds: string[] }`              | `200 ActivityDto[]` — chỉ DRAFT                                                      |
+| Method | Path                                       | Request                                  | Response                                                                                                                                                                                                             |
+| ------ | ------------------------------------------ | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/challenges`                              | `{ groupId, title, startDate, endDate }` | `201 ChallengeDto`. `409` nếu đã có challenge ACTIVE hoặc chồng ngày trong cùng nhóm                                                                                                                                 |
+| GET    | `/challenges/mine?groupId=`                | —                                        | `200 ChallengeDto[]` (theo `createdAt` giảm)                                                                                                                                                                         |
+| GET    | `/challenges/group/{groupId}`              | —                                        | `200 ChallengeDto[]` của **mọi** thành viên nhóm, chỉ xem; `ACTIVE` → `DRAFT` → `COMPLETED`/`CANCELLED`, cùng trạng thái theo `startDate` giảm; `ownerName` theo chủ sở hữu từng kỳ; `401` nếu không phải thành viên |
+| PATCH  | `/challenges/{id}`                         | `{ title?; startDate?; endDate? }`       | `200 ChallengeDto` — **chỉ khi DRAFT**, `422` nếu đã ACTIVE                                                                                                                                                          |
+| DELETE | `/challenges/{id}`                         | —                                        | `204` (chỉ DRAFT → chuyển `CANCELLED`)                                                                                                                                                                               |
+| POST   | `/challenges/{id}/activities`              | `ActivityInput` (bên dưới)               | `201 ActivityDto` — chỉ DRAFT                                                                                                                                                                                        |
+| PUT    | `/challenges/{id}/activities/{activityId}` | `ActivityInput`                          | `200 ActivityDto` — chỉ DRAFT                                                                                                                                                                                        |
+| DELETE | `/challenges/{id}/activities/{activityId}` | —                                        | `204` — chỉ DRAFT                                                                                                                                                                                                    |
+| PUT    | `/challenges/{id}/activities/order`        | `{ activityIds: string[] }`              | `200 ActivityDto[]` — chỉ DRAFT                                                                                                                                                                                      |
 
 `ActivityInput` (các field theo type, validate chéo):
 

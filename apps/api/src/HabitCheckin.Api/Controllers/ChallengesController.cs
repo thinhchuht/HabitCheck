@@ -22,6 +22,10 @@ public sealed class ChallengesController(ISender sender) : ControllerBase
     public async Task<ActionResult<List<ChallengeDto>>> Mine([FromQuery] Guid groupId, CancellationToken ct) =>
         Ok(await sender.Send(new GetMyChallengesQuery(groupId), ct));
 
+    [HttpGet("group/{groupId:guid}")]
+    public async Task<ActionResult<List<ChallengeDto>>> InGroup(Guid groupId, CancellationToken ct) =>
+        Ok(await sender.Send(new GetGroupChallengesQuery(groupId), ct));
+
     [HttpGet("{challengeId:guid}")]
     public async Task<ActionResult<ChallengeDto>> Get(Guid challengeId, CancellationToken ct) =>
         Ok(await sender.Send(new GetChallengeQuery(challengeId), ct));
