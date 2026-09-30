@@ -1,7 +1,9 @@
 import {
   BarChart3,
   CalendarCheck,
+  ChevronUp,
   Flame,
+  LogOut,
   ShieldCheck,
   Target,
   UserCircle,
@@ -9,9 +11,19 @@ import {
   UsersRound,
   Wallet,
 } from "lucide-react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { authApi } from "@/api/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { GroupSwitcher } from "@/components/GroupSwitcher";
+import { stopRealtime } from "@/realtime/connection";
 import { firstName } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
 import { useLiveEvents } from "@/realtime/useLiveEvents";
@@ -24,7 +36,6 @@ const NAV_ITEMS = [
   { to: "/stats", label: "Thống kê", icon: BarChart3 },
   { to: "/fund", label: "Quỹ", icon: Wallet },
   { to: "/group", label: "Nhóm", icon: UsersRound },
-  { to: "/profile", label: "Hồ sơ", icon: UserCircle },
 ] as const;
 
 function Logo() {
@@ -40,32 +51,113 @@ function Logo() {
   );
 }
 
-function UserChip() {
+/**
+ * Khối user ở góc dưới sidebar (mobile: avatar trên thanh trên cùng):
+ * bấm mở menu "Hồ sơ" / "Đăng xuất".
+ */
+function UserMenu({ compact = false }: { compact?: boolean }) {
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   if (!user) return null;
-  return (
-    <div className="flex items-center gap-2.5">
-      <Avatar className="h-9 w-9">
-        {user.avatarUrl ? (
-          <AvatarImage src={user.avatarUrl} alt={user.displayName} />
-        ) : null}
-        <AvatarFallback>
-          {firstName(user.displayName).toUpperCase().slice(0, 1)}
-        </AvatarFallback>
-      </Avatar>
-      <div className="min-w-0 flex-1">
+
+  async function handleLogout(): Promise<void> {
+    try {
+      await authApi.logout();
+    } catch {
+      // Ignore — clear local state anyway.
+    }
+    await stopRealtime();
+    useAuthStore.getState().clearAuth();
+    navigate("/login", { replace: true });
+  }
+
+  const menu = (
+    <DropdownMenuContent
+      side={compact ? "bottom" : "top"}
+      align="end"
+      className="w-56"
+    >
+      <DropdownMenuLabel>
         <p className="truncate text-sm font-semibold text-slate-800">
           {user.displayName}
         </p>
-        <p className="truncate text-xs text-slate-400">{user.email}</p>
-      </div>
-    </div>
+        <p className="truncate text-xs font-normal text-slate-400">
+          {user.email}
+        </p>
+      </DropdownMenuLabel>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={() => navigate("/profile")}>
+        <UserCircle />
+        Hồ sơ
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        className="text-rose-600 focus:bg-rose-50 focus:text-rose-700"
+        onClick={() => void handleLogout()}
+      >
+        <LogOut />
+        Đăng xuất
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  );
+
+  if (compact) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label="Menu tài khoản"
+            className="rounded-full transition-opacity hover:opacity-80"
+          >
+            <Avatar className="h-9 w-9">
+              <AvatarImage
+                src={user.avatarUrl ?? undefined}
+                alt={user.displayName}
+              />
+              <AvatarFallback>
+                {user.displayName.trim().charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          </button>
+        </DropdownMenuTrigger>
+        {menu}
+      </DropdownMenu>
+    );
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Menu tài khoản"
+          className="flex w-full items-center gap-2.5 rounded-xl p-1.5 text-left transition-colors hover:bg-slate-100/70"
+        >
+          <Avatar className="h-9 w-9">
+            <AvatarImage
+              src={user.avatarUrl ?? undefined}
+              alt={user.displayName}
+            />
+            <AvatarFallback>
+              {firstName(user.displayName).toUpperCase().slice(0, 1)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-slate-800">
+              {user.displayName}
+            </p>
+            <p className="truncate text-xs text-slate-400">{user.email}</p>
+          </div>
+          <ChevronUp className="h-4 w-4 shrink-0 text-slate-400" />
+        </button>
+      </DropdownMenuTrigger>
+      {menu}
+    </DropdownMenu>
   );
 }
 
 export function AppShell() {
   useLiveEvents();
-  const user = useAuthStore((s) => s.user);
 
   return (
     <div className="min-h-screen">
@@ -102,8 +194,8 @@ export function AppShell() {
           <GroupSwitcher />
         </nav>
         <div className="border-t border-slate-100 px-3 py-3">
-          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
-            <UserChip />
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-1.5">
+            <UserMenu />
           </div>
         </div>
       </aside>
@@ -111,14 +203,7 @@ export function AppShell() {
       {/* Mobile top bar */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur md:hidden">
         <Logo />
-        <Avatar className="h-9 w-9">
-          {user?.avatarUrl ? (
-            <AvatarImage src={user.avatarUrl} alt={user.displayName} />
-          ) : null}
-          <AvatarFallback>
-            {(user?.displayName ?? "?").trim().charAt(0).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
+        <UserMenu compact />
       </header>
 
       <main className="px-4 py-6 md:ml-64 md:px-8 md:py-8">
