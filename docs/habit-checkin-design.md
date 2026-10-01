@@ -275,6 +275,7 @@ CREATE TABLE users (
   username      varchar(64) UNIQUE,          -- tài khoản mật khẩu (admin); NULL với user Google
   password_hash varchar(512),                -- "PBKDF2-SHA256$<iter>$<saltB64>$<hashB64>"
   is_admin      boolean NOT NULL DEFAULT false,
+  is_banned     boolean NOT NULL DEFAULT false, -- admin chặn: mọi request có auth → 403, không refresh token
   avatar_public_id text,
   avatar_url    text,
   created_at    timestamptz NOT NULL DEFAULT now(),
@@ -443,6 +444,18 @@ CREATE TABLE refresh_tokens (
   expires_at  timestamptz NOT NULL,
   revoked_at  timestamptz
 );
+
+CREATE TABLE admin_audit_logs (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  admin_id    uuid NOT NULL REFERENCES users(id),   -- Restrict: không xoá admin còn log
+  action      varchar(32) NOT NULL,   -- BAN | UNBAN | RENAME | SET_PASSWORD | GRANT_ADMIN | REVOKE_ADMIN | SETTLE | FINALIZE | ACTIVATE | ANNOUNCE
+  target_type varchar(32),            -- USER (rỗng với job/announce)
+  target_id   uuid,
+  detail      varchar(500),           -- KHÔNG bao giờ chứa mật khẩu
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_admin_audit_logs_admin ON admin_audit_logs(admin_id);
+CREATE INDEX ix_admin_audit_logs_created ON admin_audit_logs(created_at);
 ```
 
 ### 4.3 Trigger khoá hoạt động (lớp bảo vệ ở DB)
@@ -547,18 +560,30 @@ Base: `/api`, auth Bearer JWT, lỗi trả `ProblemDetails` (RFC 7807). OpenAPI 
 
 ### Admin (chỉ `role=admin`)
 
-| Method | Path                                   | Mô tả                                                                                   |
-| ------ | -------------------------------------- | --------------------------------------------------------------------------------------- |
-| GET    | `/admin/stats`                         | Tổng quan: số user/nhóm/kỳ, check-in hôm nay, phạt hôm nay/tổng, user mới nhất          |
-| GET    | `/admin/users?search=&page=&pageSize=` | Danh sách user (tìm theo tên/email, phân trang), kèm số ngày chốt/fail/tổng phạt        |
-| GET    | `/admin/users/{id}`                    | Chi tiết user + các nhóm tham gia + kỳ/hoạt động + số liệu từng kỳ                      |
-| POST   | `/admin/users/{id}/admin`              | Cấp quyền admin (`204`)                                                                 |
-| DELETE | `/admin/users/{id}/admin`              | Thu hồi quyền admin (`204`) — không được tự thu hồi chính mình                          |
-| GET    | `/admin/groups`                        | Danh sách nhóm: owner, số thành viên, số kỳ                                             |
-| GET    | `/admin/groups/{id}`                   | Chi tiết nhóm + thành viên + kỳ/hoạt động + số liệu từng kỳ                             |
-| POST   | `/admin/settle?date=`                  | Chạy lại `DailySettlementJob` cho 1 ngày (PROVISIONAL) — **chỉ môi trường Development** |
-| POST   | `/admin/finalize?date=`                | Chạy lại `FinalizeJob` cho 1 ngày (FINAL + ghi sổ quỹ) — **chỉ Development**            |
-| POST   | `/admin/activate`                      | Chạy lại `ChallengeActivationJob` — **chỉ Development**                                 |
+| Method | Path                                              | Mô tả                                                                                              |
+| ------ | ------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| GET    | `/admin/stats`                                    | Tổng quan: số user/nhóm/kỳ, check-in hôm nay, phạt hôm nay/tổng, user mới nhất                     |
+| GET    | `/admin/stats/overview`                           | Xu hướng 14 ngày (check-in + phạt), xếp hạng nhóm, top 10 user nhiều phạt                          |
+| GET    | `/admin/users?search=&page=&pageSize=`            | Danh sách user (tìm theo tên/email, phân trang), kèm số ngày chốt/fail/tổng phạt, badge Admin/Chặn |
+| GET    | `/admin/users/{id}`                               | Chi tiết user + các nhóm tham gia + kỳ/hoạt động + số liệu từng kỳ                                 |
+| POST   | `/admin/users/{id}/admin`                         | Cấp quyền admin (`204`)                                                                            |
+| DELETE | `/admin/users/{id}/admin`                         | Thu hồi quyền admin (`204`) — không được tự thu hồi chính mình                                     |
+| POST   | `/admin/users/{id}/ban`                           | Chặn user: mọi request của user đó trả 403 (không tự chặn chính mình)                              |
+| DELETE | `/admin/users/{id}/ban`                           | Bỏ chặn user                                                                                       |
+| PATCH  | `/admin/users/{id}`                               | `{displayName}` — đổi tên hiển thị thay user (trim, 1–100 ký tự)                                   |
+| POST   | `/admin/users/{id}/password`                      | `{newPassword}` (8–128) — đặt lại mật khẩu; chỉ user có tài khoản `username` (`204`)               |
+| GET    | `/admin/groups`                                   | Danh sách nhóm: owner, số thành viên, số kỳ                                                        |
+| GET    | `/admin/groups/{id}`                              | Chi tiết nhóm + thành viên + kỳ/hoạt động + số liệu từng kỳ                                        |
+| GET    | `/admin/activities?search=&type=&page=&pageSize=` | Tất cả hoạt động mọi nhóm (kiểu, bằng chứng, kỳ, nhóm, chủ, số check-in)                           |
+| GET    | `/admin/fund`                                     | Quỹ toàn hệ thống: tổng phạt/đã thu/chưa thu, theo nhóm, 50 mục sổ cái gần nhất                    |
+| GET    | `/admin/jobs`                                     | Trạng thái 5 job Hangfire (cron, chạy tới, chạy gần nhất — đọc từ `hangfire.hash`)                 |
+| GET    | `/admin/audit-logs?page=&pageSize=`               | Lịch sử thao tác admin (mới nhất trước, phân trang)                                                |
+| POST   | `/admin/announce`                                 | `{message}` (1–500) — broadcast event `Announcement` tới mọi client online                         |
+| POST   | `/admin/settle?date=`                             | Chạy lại `DailySettlementJob` cho 1 ngày (PROVISIONAL) — **chỉ môi trường Development**            |
+| POST   | `/admin/finalize?date=`                           | Chạy lại `FinalizeJob` cho 1 ngày (FINAL + ghi sổ quỹ) — **chỉ Development**                       |
+| POST   | `/admin/activate`                                 | Chạy lại `ChallengeActivationJob` — **chỉ Development**                                            |
+
+Mọi endpoint admin đều ghi `admin_audit_logs` (action: `BAN/UNBAN/RENAME/SET_PASSWORD/GRANT_ADMIN/REVOKE_ADMIN/SETTLE/FINALIZE/ACTIVATE/ANNOUNCE`); mật khẩu không bao giờ nằm trong `detail`.
 
 ---
 
@@ -573,15 +598,16 @@ Client gọi:
 
 Server đẩy về group:
 
-| Event                | Payload                                                    | Dùng cho                                                |
-| -------------------- | ---------------------------------------------------------- | ------------------------------------------------------- |
-| `CheckInCreated`     | `{userId, activityId, checkinAt, isLate, thumbnailUrl}`    | Live board, feed bằng chứng                             |
-| `CheckOutCompleted`  | `{userId, activityId, durationMinutes, totalTodayMinutes}` | Legacy: phiên OPEN cũ (không còn phát cho check-in mới) |
-| `SessionStarted`     | `{userId, activityId, startedAt}`                          | Legacy: không còn phát cho check-in mới                 |
-| `ProofRejected`      | `{checkinId, userId, reason}`                              | Giữ trong code — UI không dùng                          |
-| `DailyResultUpdated` | `{userId, date, failedCount, penaltyAmount, status}`       | Live board, Stats                                       |
-| `MemberPresence`     | `{userId, online}`                                         | Chấm xanh online                                        |
-| `ProfileUpdated`     | `{userId, displayName, avatarUrl}`                         | Cập nhật avatar khắp nơi                                |
+| Event                | Payload                                                                                   | Dùng cho                                                |
+| -------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `CheckInCreated`     | `{userId, activityId, checkinAt, isLate, thumbnailUrl}`                                   | Live board, feed bằng chứng                             |
+| `CheckOutCompleted`  | `{userId, activityId, durationMinutes, totalTodayMinutes}`                                | Legacy: phiên OPEN cũ (không còn phát cho check-in mới) |
+| `SessionStarted`     | `{userId, activityId, startedAt}`                                                         | Legacy: không còn phát cho check-in mới                 |
+| `ProofRejected`      | `{checkinId, userId, reason}`                                                             | Giữ trong code — UI không dùng                          |
+| `DailyResultUpdated` | `{userId, date, failedCount, penaltyAmount, status}`                                      | Live board, Stats                                       |
+| `MemberPresence`     | `{userId, online}`                                                                        | Chấm xanh online                                        |
+| `ProfileUpdated`     | `{userId, displayName, avatarUrl}`                                                        | Cập nhật avatar khắp nơi                                |
+| `Announcement`       | `{message, senderName, at}` — **gửi cho mọi connection (`Clients.All`), không theo nhóm** | Toast thông báo từ admin (đường dẫn `/admin/announce`)  |
 
 - (Cũ) Đồng hồ phiên `DURATION` từng chạy ở client từ `startedAt` + offset `serverTime`; giờ DURATION là tick + 1 ảnh nên không còn đồng hồ phiên.
 - Khi reconnect: client gọi lại `GET /groups/{id}/live` để đồng bộ snapshot rồi tiếp tục nghe event.
@@ -649,13 +675,26 @@ Server đẩy về group:
 
 ### 7.10 Admin (chỉ user có quyền admin)
 
-Trang `/admin`, mục "Admin" chỉ hiện trong sidebar khi `user.isAdmin = true` (route bảo vệ bằng `RequireAdmin`, client redirect + server policy `Admin`).
+Khu admin là **bộ tab riêng** (`AdminLayout` ở `/admin`): Tổng quan · User · Nhóm · Hoạt động · Quỹ · Thống kê · Vận hành. Mục "Admin" chỉ hiện trong sidebar khi `user.isAdmin = true` (route bảo vệ bằng `RequireAdmin`, client redirect + server policy `Admin`). Admin không tạo nhóm/thử thách — đó là thao tác của user; khu admin chỉ để xem, thống kê và vận hành.
 
-- **Dashboard**: số liệu tổng (user, nhóm, kỳ ACTIVE/DRAFT, check-in hôm nay, phạt hôm nay, tổng phạt), người dùng mới nhất, thẻ vận hành job (chạy lại settle/finalize/activate cho 1 ngày — chỉ Development).
-- **User** (`/admin/users`): tìm kiếm theo tên/email, phân trang; mỗi dòng: avatar, badge Admin, email, số nhóm, ngày chốt/fail, tổng phạt. Bấm vào → chi tiết.
-- **Chi tiết user** (`/admin/users/{id}`): thông tin tài khoản (username, tạo ngày, đăng nhập gần nhất, số ngày chốt/fail, tổng phạt), nút cấp/thu hồi quyền admin (không tự thu hồi chính mình); theo từng nhóm: vai trò, chủ nhóm, danh sách kỳ thử thách kèm số liệu (số ngày chốt, ngày fail, tổng phạt) — bấm mở xem hoạt động của kỳ.
+- **Tổng quan** (`/admin`): số liệu tổng (user, nhóm, kỳ ACTIVE/DRAFT, check-in hôm nay, phạt hôm nay, tổng phạt), người dùng mới nhất (badge Admin/Chặn).
+- **User** (`/admin/users`): tìm kiếm theo tên/email, phân trang; mỗi dòng: avatar, badge Admin/Chặn, email, số nhóm, ngày chốt/fail, tổng phạt. Bấm vào → chi tiết.
+- **Chi tiết user** (`/admin/users/{id}`): thông tin tài khoản (badge Admin/Chặn, @username, tạo ngày, đăng nhập gần nhất, số ngày chốt/fail, tổng phạt); các thao tác quản lý:
+  - **Cấp / thu hồi quyền admin** (không tự thu hồi chính mình);
+  - **Chặn / bỏ chặn tài khoản** (không tự chặn chính mình) — user bị chặn nhận 403 ở mọi endpoint có auth;
+  - **Đổi tên hiển thị** (form inline, trim, 1–100 ký tự);
+  - **Đặt lại mật khẩu** — chỉ hiện với user có tài khoản `username` (tối thiểu 8 ký tự).
+    Theo từng nhóm: vai trò, chủ nhóm, danh sách kỳ thử thách kèm số liệu (số ngày chốt, ngày fail, tổng phạt) — bấm mở xem hoạt động của kỳ.
 - **Nhóm** (`/admin/groups`): danh sách tất cả nhóm (owner, số thành viên, số kỳ) → chi tiết.
 - **Chi tiết nhóm** (`/admin/groups/{id}`): thành viên + vai trò, bảng phạt của nhóm, danh sách kỳ thử thách + hoạt động + số liệu.
+- **Hoạt động** (`/admin/activities`): bảng tất cả hoạt động mọi nhóm — icon + tên, kiểu (badge), loại bằng chứng, kỳ (tên + trạng thái + khoảng ngày), nhóm + chủ, số lần check-in; lọc theo từ khoá (tên hoạt động / tên kỳ) + kiểu hoạt động, phân trang.
+- **Quỹ** (`/admin/fund`): 3 thẻ tổng (phạt đã chốt / đã thu / chưa thu), bảng theo nhóm (phạt, đã đóng, còn nợ), sổ cái 50 giao dịch gần nhất (loại, nhóm, user, số tiền, ghi chú, người ghi, thời gian).
+- **Thống kê** (`/admin/stats`): xu hướng 14 ngày (check-in + phạt theo ngày), xếp hạng nhóm (thành viên, ngày chốt/fail, tỷ lệ đạt, tổng phạt), top 10 user chịu phạt nhiều nhất.
+- **Vận hành** (`/admin/ops`):
+  - bảng 5 job Hangfire (cron, mô tả, lần chạy tới, lần chạy gần nhất — đọc từ lưu trữ Hangfire, giờ VN);
+  - nút chạy lại job cho 1 ngày: Chốt ngày (PROVISIONAL) / Finalize (FINAL) / Kích hoạt kỳ mới — **chỉ Development**;
+  - **Gửi thông báo** tới mọi user online (broadcast `Announcement` qua SignalR, tối đa 500 ký tự);
+  - **Lịch sử thao tác admin** (audit log, badge theo loại thao tác, phân trang).
 
 ---
 
@@ -838,6 +877,8 @@ public UploadSignature Sign(UploadIntent intent, string folder)
 - Seeder chạy khi API khởi động (sau migration): tạo admin theo `Admin:Username` (mặc định `thinhchuht`); mật khẩu lấy từ `Admin:Password` (env/appsettings) nếu có — mỗi lần khởi động có giá trị này, hash được cập nhật (đường xoay mật khẩu) — nếu không có thì dùng hash mặc định nhúng sẵn. **Repo không chứa plaintext mật khẩu.**
 - Access token JWT 15 phút; thêm claim `role = "admin"` khi `is_admin = true`; refresh token lưu hash, cookie `HttpOnly; Secure; SameSite=Strict`, xoay vòng mỗi lần refresh.
 - Policy: `GroupMember`, `GroupAdmin`, `ChallengeOwner`, `Admin` (RequireRole("admin")).
+- **User bị chặn** (`is_banned = true`): `BannedUserMiddleware` (chạy sau `UseAuthentication`) chặn mọi request có JWT hợp lệ (ngoại trừ `/api/auth/*`) bằng 403 ProblemDetails; luồng refresh token cũng từ chối user bị chặn nên không thể tự "hồi sinh" access token. Client nhận 403 loại "banned" → xoá session, toast, về trang login.
+- **Audit log admin**: mọi thao tác quản lý (ban/unban, đổi tên, đặt lại mật khẩu, cấp/thu hồi admin, chạy job, gửi thông báo) ghi vào `admin_audit_logs` — ai làm, thao tác gì, target nào, chi tiết, khi nào; mật khẩu không bao giờ được ghi.
 - Chỉ thành viên cùng nhóm xem được check-in/bằng chứng của nhau.
 - Rate limit (`Microsoft.AspNetCore.RateLimiting`): upload intent 30/phút/user; `/auth/password` 10 req/5 phút/IP.
 - Endpoint vận hành job (`/admin/settle|finalize|activate`) chỉ phản hồi ở môi trường Development, production trả 403.

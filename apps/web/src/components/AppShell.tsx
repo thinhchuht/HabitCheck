@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { authApi } from "@/api/auth";
 import { meApi } from "@/api/me";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -26,10 +27,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { GroupSwitcher } from "@/components/GroupSwitcher";
-import { stopRealtime } from "@/realtime/connection";
+import { onRealtimeEvent, stopRealtime } from "@/realtime/connection";
 import { firstName } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
 import { useLiveEvents } from "@/realtime/useLiveEvents";
+import type { AnnouncementEvent } from "@/types/api";
 
 const NAV_ITEMS = [
   { to: "/today", label: "Hôm nay", icon: CalendarCheck },
@@ -187,6 +189,17 @@ export function AppShell() {
       cancelled = true;
     };
   }, [accessToken, setUser]);
+
+  // Thông báo toàn hệ thống từ admin (SignalR): hiện toast cho mọi user online.
+  useEffect(() => {
+    if (!accessToken) return;
+    return onRealtimeEvent<AnnouncementEvent>("Announcement", (evt) => {
+      toast.info(`Thông báo từ ${evt.senderName}`, {
+        description: evt.message,
+        duration: 8000,
+      });
+    });
+  }, [accessToken]);
 
   return (
     <div className="min-h-screen">

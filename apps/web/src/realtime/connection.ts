@@ -6,7 +6,7 @@ import {
 import { HUB_URL } from "@/lib/constants";
 import { useAuthStore } from "@/store/auth";
 
-/** All server -> client events for the group (contract §4). */
+/** All server -> client events for the group (contract §4) + Announcement (toàn hệ thống). */
 export type RealtimeEvent =
   | "CheckInCreated"
   | "CheckOutCompleted"
@@ -14,7 +14,8 @@ export type RealtimeEvent =
   | "ProofRejected"
   | "DailyResultUpdated"
   | "MemberPresence"
-  | "ProfileUpdated";
+  | "ProfileUpdated"
+  | "Announcement";
 
 type Handler = (payload: unknown) => void;
 
@@ -26,6 +27,7 @@ const REALTIME_EVENTS: RealtimeEvent[] = [
   "DailyResultUpdated",
   "MemberPresence",
   "ProfileUpdated",
+  "Announcement",
 ];
 
 const handlers: Record<RealtimeEvent, Set<Handler>> = {
@@ -36,6 +38,7 @@ const handlers: Record<RealtimeEvent, Set<Handler>> = {
   DailyResultUpdated: new Set(),
   MemberPresence: new Set(),
   ProfileUpdated: new Set(),
+  Announcement: new Set(),
 };
 
 const connectionSubscribers = new Set<() => void>();

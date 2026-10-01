@@ -19,6 +19,7 @@ public interface IAppDbContext
     DbSet<CheatDay> CheatDays { get; }
     DbSet<PenaltyLedgerEntry> PenaltyLedger { get; }
     DbSet<RefreshToken> RefreshTokens { get; }
+    DbSet<AdminAuditLog> AdminAuditLogs { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

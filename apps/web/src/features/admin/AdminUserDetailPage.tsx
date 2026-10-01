@@ -1,5 +1,15 @@
-import { AlertTriangle, ArrowLeft, Shield, ShieldOff } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Ban,
+  KeyRound,
+  Pencil,
+  Shield,
+  ShieldCheck,
+  ShieldOff,
+} from "lucide-react";
 import { useState } from "react";
+import type { FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Link, useParams } from "react-router-dom";
@@ -16,6 +26,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
+import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/PageHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fmtDate, fmtDateTime, formatVND } from "@/lib/format";
@@ -34,6 +45,8 @@ export function AdminUserDetailPage() {
   const queryClient = useQueryClient();
   const me = useAuthStore((s) => s.user);
   const [busy, setBusy] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [passwordValue, setPasswordValue] = useState("");
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin", "user", id],
@@ -82,6 +95,67 @@ export function AdminUserDetailPage() {
     }
   }
 
+  async function toggleBan() {
+    if (!id) return;
+    if (!u.isBanned && !window.confirm(`Chặn tài khoản ${u.displayName}?`))
+      return;
+    setBusy(true);
+    try {
+      if (u.isBanned) {
+        await adminApi.unban(id);
+        toast.success("Đã bỏ chặn tài khoản.");
+      } else {
+        await adminApi.ban(id);
+        toast.success("Đã chặn tài khoản.");
+      }
+      void queryClient.invalidateQueries({ queryKey: ["admin"] });
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Thao tác thất bại"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveRename(e: FormEvent) {
+    e.preventDefault();
+    if (!id) return;
+    const name = renameValue.trim();
+    if (!name) {
+      toast.error("Tên hiển thị không được để trống.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await adminApi.rename(id, name);
+      toast.success("Đã đổi tên hiển thị.");
+      setRenameValue("");
+      void queryClient.invalidateQueries({ queryKey: ["admin"] });
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Đổi tên thất bại"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function savePassword(e: FormEvent) {
+    e.preventDefault();
+    if (!id) return;
+    if (passwordValue.length < 8) {
+      toast.error("Mật khẩu phải có ít nhất 8 ký tự.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await adminApi.setPassword(id, passwordValue);
+      toast.success("Đã đặt lại mật khẩu.");
+      setPasswordValue("");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Đặt mật khẩu thất bại"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const u = data.user;
   const isSelf = me?.id === u.id;
 
@@ -118,6 +192,12 @@ export function AdminUserDetailPage() {
                     <Badge variant="success">
                       <Shield className="mr-1 h-3 w-3" />
                       Admin
+                    </Badge>
+                  ) : null}
+                  {u.isBanned ? (
+                    <Badge variant="danger">
+                      <Ban className="mr-1 h-3 w-3" />
+                      Chặn
                     </Badge>
                   ) : null}
                 </div>
@@ -198,6 +278,97 @@ export function AdminUserDetailPage() {
                     <ShieldOff className="h-4 w-4" />
                     Thu hồi Admin
                   </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 pt-4">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">
+                Tài khoản
+              </p>
+              <div className="space-y-3">
+                {u.isBanned ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => void toggleBan()}
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    Bỏ chặn
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={busy || isSelf}
+                    title={
+                      isSelf
+                        ? "Không thể tự chặn tài khoản của chính mình"
+                        : undefined
+                    }
+                    onClick={() => void toggleBan()}
+                  >
+                    <Ban className="h-4 w-4" />
+                    Chặn user
+                  </Button>
+                )}
+
+                <form
+                  onSubmit={(e) => void saveRename(e)}
+                  className="space-y-1.5"
+                >
+                  <p className="text-xs font-medium text-slate-500">
+                    Đổi tên hiển thị
+                  </p>
+                  <div className="flex gap-2">
+                    <Input
+                      className="flex-1"
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      placeholder="Tên hiển thị mới"
+                    />
+                    <Button
+                      type="submit"
+                      size="sm"
+                      variant="outline"
+                      disabled={busy || renameValue.trim().length === 0}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </form>
+
+                {u.username ? (
+                  <form
+                    onSubmit={(e) => void savePassword(e)}
+                    className="space-y-1.5"
+                  >
+                    <p className="text-xs font-medium text-slate-500">
+                      Đặt lại mật khẩu @{u.username}
+                    </p>
+                    <div className="flex gap-2">
+                      <Input
+                        className="flex-1"
+                        type="password"
+                        value={passwordValue}
+                        onChange={(e) => setPasswordValue(e.target.value)}
+                        placeholder="Mật khẩu mới (≥ 8 ký tự)"
+                      />
+                      <Button
+                        type="submit"
+                        size="sm"
+                        variant="outline"
+                        disabled={busy || passwordValue.length < 8}
+                      >
+                        <KeyRound className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </form>
+                ) : (
+                  <p className="text-xs text-slate-400">
+                    User đăng nhập bằng Google — không có mật khẩu.
+                  </p>
                 )}
               </div>
             </div>

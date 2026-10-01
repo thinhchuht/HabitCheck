@@ -222,3 +222,17 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
         b.HasIndex(x => x.ExpiresAt);
     }
 }
+
+internal sealed class AdminAuditLogConfiguration : IEntityTypeConfiguration<AdminAuditLog>
+{
+    public void Configure(EntityTypeBuilder<AdminAuditLog> b)
+    {
+        b.ToTable("admin_audit_logs");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Action).HasMaxLength(32).IsRequired();
+        b.Property(x => x.TargetType).HasMaxLength(32);
+        b.Property(x => x.Detail).HasMaxLength(500);
+        b.HasOne<User>(x => x.Admin).WithMany().HasForeignKey(x => x.AdminId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => x.CreatedAt);
+    }
+}

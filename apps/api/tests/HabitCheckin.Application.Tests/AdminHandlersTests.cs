@@ -280,7 +280,7 @@ public class AdminHandlersTests
     public async Task SetUserAdmin_GrantsAndRevokes()
     {
         var (db, owner, member, _, _) = await NewContextAsync();
-        var handler = new SetUserAdminHandler(db, new FakeUser(owner.Id));
+        var handler = new SetUserAdminHandler(db, new FakeUser(owner.Id), new FakeClock(Now));
 
         var granted = await handler.Handle(new SetUserAdminCommand(member.Id, true), default);
         granted.IsAdmin.Should().BeTrue();
@@ -294,7 +294,7 @@ public class AdminHandlersTests
     public async Task SetUserAdmin_SelfRevoke_ThrowsBusinessRule()
     {
         var (db, _, member, _, _) = await NewContextAsync();
-        var handler = new SetUserAdminHandler(db, new FakeUser(member.Id));
+        var handler = new SetUserAdminHandler(db, new FakeUser(member.Id), new FakeClock(Now));
 
         var act = () => handler.Handle(new SetUserAdminCommand(member.Id, false), default);
         await act.Should().ThrowAsync<BusinessRuleException>();
@@ -304,7 +304,7 @@ public class AdminHandlersTests
     public async Task SetUserAdmin_UnknownUser_ThrowsNotFound()
     {
         var (db, owner, _, _, _) = await NewContextAsync();
-        var handler = new SetUserAdminHandler(db, new FakeUser(owner.Id));
+        var handler = new SetUserAdminHandler(db, new FakeUser(owner.Id), new FakeClock(Now));
 
         var act = () => handler.Handle(new SetUserAdminCommand(Guid.NewGuid(), true), default);
         await act.Should().ThrowAsync<NotFoundException>();

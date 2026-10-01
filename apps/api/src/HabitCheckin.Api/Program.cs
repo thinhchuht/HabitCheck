@@ -226,6 +226,7 @@ try
     app.UseCors();
     app.UseRateLimiter();
     app.UseAuthentication();
+    app.UseMiddleware<BannedUserMiddleware>();
     app.UseAuthorization();
 
     app.UseSwagger();

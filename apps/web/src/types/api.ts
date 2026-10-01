@@ -505,6 +505,7 @@ export interface AdminUserSummary {
   email: string;
   avatarUrl: string | null;
   isAdmin: boolean;
+  isBanned: boolean;
   groupCount: number;
   createdAt: string;
   lastLoginAt: string | null;
@@ -528,6 +529,7 @@ export interface AdminUser {
   username: string | null;
   avatarUrl: string | null;
   isAdmin: boolean;
+  isBanned: boolean;
   createdAt: string;
   lastLoginAt: string | null;
   groupCount: number;
@@ -580,4 +582,115 @@ export interface AdminGroupList {
 export interface AdminGroupDetail {
   group: GroupDto;
   challenges: AdminChallengeStats[];
+}
+
+// ---- Admin v2: hoạt động / quỹ / thống kê / vận hành ----
+
+export interface AdminActivity {
+  id: string;
+  name: string;
+  icon: string | null;
+  type: ActivityType;
+  proofType: ProofType;
+  challengeTitle: string;
+  challengeStatus: ChallengeStatus;
+  startDate: string;
+  endDate: string;
+  groupName: string;
+  ownerName: string;
+  checkinCount: number;
+}
+
+export interface AdminActivityList {
+  total: number;
+  activities: AdminActivity[];
+}
+
+export interface AdminGroupFund {
+  groupId: string;
+  name: string;
+  totalPenalty: number;
+  totalPaid: number;
+  outstanding: number;
+}
+
+export interface AdminLedgerEntry {
+  id: string;
+  groupName: string;
+  userId: string;
+  userName: string;
+  amount: number;
+  kind: string; // PENALTY | PAYMENT | ADJUSTMENT
+  note: string | null;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+export interface AdminFund {
+  grandTotalPenalty: number;
+  grandTotalPaid: number;
+  grandOutstanding: number;
+  groups: AdminGroupFund[];
+  recentEntries: AdminLedgerEntry[];
+}
+
+export interface AdminDailyStat {
+  date: string;
+  checkins: number;
+  penaltyVnd: number;
+}
+
+export interface AdminGroupRank {
+  groupId: string;
+  name: string;
+  memberCount: number;
+  settledDays: number;
+  failedDays: number;
+  totalPenalty: number;
+  passRate: number | null; // 0..1
+}
+
+export interface AdminTopPenaltyUser {
+  userId: string;
+  displayName: string;
+  email: string;
+  totalPenalty: number;
+  failedDays: number;
+}
+
+export interface AdminStatsOverview {
+  dailyTrend: AdminDailyStat[];
+  groupRanking: AdminGroupRank[];
+  topPenaltyUsers: AdminTopPenaltyUser[];
+}
+
+export interface AdminJobStatus {
+  id: string;
+  name: string;
+  cron: string;
+  description: string;
+  nextExecutionUtc: string | null;
+  lastExecutionUtc: string | null;
+}
+
+export interface AdminAuditLog {
+  id: string;
+  adminId: string;
+  adminName: string;
+  action: string; // BAN | UNBAN | RENAME | SET_PASSWORD | GRANT_ADMIN | REVOKE_ADMIN | SETTLE | FINALIZE | ACTIVATE | ANNOUNCE
+  targetType: string | null;
+  targetId: string | null;
+  detail: string | null;
+  createdAt: string;
+}
+
+export interface AdminAuditLogList {
+  total: number;
+  logs: AdminAuditLog[];
+}
+
+export interface AnnouncementEvent {
+  message: string;
+  senderName: string;
+  at: string;
 }

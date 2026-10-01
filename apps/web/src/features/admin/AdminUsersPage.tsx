@@ -117,6 +117,9 @@ export function AdminUsersPage() {
                             {u.isAdmin ? (
                               <Badge variant="success">Admin</Badge>
                             ) : null}
+                            {u.isBanned ? (
+                              <Badge variant="danger">Chặn</Badge>
+                            ) : null}
                           </div>
                           <p className="truncate text-xs text-slate-500">
                             {u.email} · {u.groupCount} nhóm · tạo{" "}

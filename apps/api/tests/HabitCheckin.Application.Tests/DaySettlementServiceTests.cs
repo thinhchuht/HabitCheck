@@ -23,6 +23,9 @@ public class DaySettlementServiceTests
 
         public Task UserAsync(Guid userId, string eventName, object payload, CancellationToken ct = default)
             => Task.CompletedTask;
+
+        public Task BroadcastAsync(string eventName, object payload, CancellationToken ct = default)
+            => Task.CompletedTask;
     }
 
     private sealed class FakeMedia : IMediaStorage

@@ -6,10 +6,15 @@ import { AppShell } from "@/components/AppShell";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { OnboardingPage } from "@/features/auth/OnboardingPage";
 import { AdminDashboardPage } from "@/features/admin/AdminDashboardPage";
+import { AdminLayout } from "@/features/admin/AdminLayout";
 import { AdminGroupsPage } from "@/features/admin/AdminGroupsPage";
 import { AdminGroupDetailPage } from "@/features/admin/AdminGroupDetailPage";
 import { AdminUsersPage } from "@/features/admin/AdminUsersPage";
 import { AdminUserDetailPage } from "@/features/admin/AdminUserDetailPage";
+import { AdminActivitiesPage } from "@/features/admin/AdminActivitiesPage";
+import { AdminFundPage } from "@/features/admin/AdminFundPage";
+import { AdminStatsPage } from "@/features/admin/AdminStatsPage";
+import { AdminOpsPage } from "@/features/admin/AdminOpsPage";
 import { TodayPage } from "@/features/today/TodayPage";
 import { ChallengePage } from "@/features/challenge/ChallengePage";
 import { LiveBoardPage } from "@/features/live-board/LiveBoardPage";
@@ -29,14 +34,17 @@ export function App() {
 
         <Route element={<RequireAdmin />}>
           <Route element={<AppShell />}>
-            <Route path="/admin" element={<AdminDashboardPage />} />
-            <Route path="/admin/users" element={<AdminUsersPage />} />
-            <Route path="/admin/users/:id" element={<AdminUserDetailPage />} />
-            <Route path="/admin/groups" element={<AdminGroupsPage />} />
-            <Route
-              path="/admin/groups/:id"
-              element={<AdminGroupDetailPage />}
-            />
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<AdminDashboardPage />} />
+              <Route path="users" element={<AdminUsersPage />} />
+              <Route path="users/:id" element={<AdminUserDetailPage />} />
+              <Route path="groups" element={<AdminGroupsPage />} />
+              <Route path="groups/:id" element={<AdminGroupDetailPage />} />
+              <Route path="activities" element={<AdminActivitiesPage />} />
+              <Route path="fund" element={<AdminFundPage />} />
+              <Route path="stats" element={<AdminStatsPage />} />
+              <Route path="ops" element={<AdminOpsPage />} />
+            </Route>
           </Route>
         </Route>
 

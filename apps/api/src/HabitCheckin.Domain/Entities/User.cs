@@ -14,6 +14,8 @@ public class User
     /// <summary>Hash PBKDF2-SHA256, null với user Google thường.</summary>
     public string? PasswordHash { get; set; }
     public bool IsAdmin { get; set; }
+    /// <summary>User bị admin chặn: mọi request có auth đều trả 403, không refresh được token.</summary>
+    public bool IsBanned { get; set; }
 
     public int? ReminderDeadlineAheadMinutes { get; set; }
     public bool ReminderEndOfDay { get; set; } = true;

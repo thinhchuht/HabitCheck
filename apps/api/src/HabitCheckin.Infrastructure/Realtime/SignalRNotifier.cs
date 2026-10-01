@@ -10,4 +10,7 @@ public sealed class SignalRNotifier(IHubContext<LiveHub> hub) : IRealtimeNotifie
 
     public Task UserAsync(Guid userId, string eventName, object payload, CancellationToken ct = default) =>
         hub.Clients.Group($"user:{userId:N}").SendAsync(eventName, payload, ct);
+
+    public Task BroadcastAsync(string eventName, object payload, CancellationToken ct = default) =>
+        hub.Clients.All.SendAsync(eventName, payload, ct);
 }

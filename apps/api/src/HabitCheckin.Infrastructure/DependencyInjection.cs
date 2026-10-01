@@ -99,6 +99,7 @@ public static class DependencyInjection
             opts.WorkerCount = 2;
             opts.Queues = new[] { "default" };
         });
+        services.AddScoped<IJobStatusProvider, HangfireJobStatusProvider>();
 
         // Job recurring (cron theo giờ VN) — đăng ở Program.cs sau khi có IRecurringJobManager.
         return services;

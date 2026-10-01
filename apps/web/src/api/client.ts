@@ -58,6 +58,20 @@ api.interceptors.response.use(
       toast.error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.");
       window.location.assign("/login");
     }
+
+    // 403 do tài khoản bị admin chặn (BannedUserMiddleware / RefreshTokenHandler).
+    if (status === 403) {
+      const data = (error.response?.data ?? null) as ProblemDetails | null;
+      const banned =
+        data?.detail?.includes("chặn") ??
+        data?.type?.includes("banned") ??
+        false;
+      if (banned) {
+        useAuthStore.getState().clearAuth();
+        toast.error(data?.detail ?? "Tài khoản của bạn đã bị chặn.");
+        window.location.assign("/login");
+      }
+    }
     return Promise.reject(error);
   },
 );

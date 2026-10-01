@@ -120,6 +120,9 @@ public sealed class RefreshTokenHandler(IAppDbContext db, IClock clock, IJwtToke
         if (rt.RevokedAt is not null || rt.ExpiresAt <= clock.UtcNow)
             throw new UnauthorizedException("Refresh token đã hết hạn hoặc bị thu hồi");
 
+        if (rt.User!.IsBanned)
+            throw new UnauthorizedException("Tài khoản đã bị chặn");
+
         // Rotation
         rt.RevokedAt = clock.UtcNow;
         var newToken = TokenHashing.NewRefreshToken();

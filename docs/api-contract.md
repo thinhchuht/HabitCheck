@@ -315,13 +315,13 @@ AdminStats = {
   checkinsToday: number; penaltyTodayVnd: number; penaltyTotalVnd: number;
   recentUsers: {
     id: string; displayName: string; email: string; avatarUrl: string | null;
-    isAdmin: boolean; groupCount: number;
+    isAdmin: boolean; isBanned: boolean; groupCount: number;
     createdAt: string; lastLoginAt: string | null;
   }[];
 }
 AdminUser = {
   id: string; displayName: string; email: string;
-  username: string | null; avatarUrl: string | null; isAdmin: boolean;
+  username: string | null; avatarUrl: string | null; isAdmin: boolean; isBanned: boolean;
   createdAt: string; lastLoginAt: string | null;
   groupCount: number; settledDays: number; failedDays: number; totalPenaltyVnd: number;
 }
@@ -341,20 +341,69 @@ AdminGroup = {
 }
 AdminGroupList = { total: number; groups: AdminGroup[] }
 AdminGroupDetail = { group: GroupDto; challenges: AdminChallengeStats[] }
+AdminActivity = {
+  id: string; name: string; icon: string | null;
+  type: ActivityType; proofType: ProofType;        // chuỗi HOA ("DEADLINE", "ANY"...)
+  challengeTitle: string; challengeStatus: ChallengeStatus;
+  startDate: string; endDate: string;              // "yyyy-MM-dd"
+  groupName: string; ownerName: string; checkinCount: number;
+}
+AdminActivityList = { total: number; activities: AdminActivity[] }
+AdminGroupFund = { groupId: string; name: string; totalPenalty: number; totalPaid: number; outstanding: number }
+AdminLedgerEntry = {
+  id: string; groupName: string; userId: string; userName: string;
+  amount: number; kind: LedgerKind;                // chuỗi HOA ("PENALTY", "PAYMENT"...)
+  note: string | null; createdBy: string | null; createdAt: string;
+}
+AdminFund = {
+  grandTotalPenalty: number; grandTotalPaid: number; grandOutstanding: number;
+  groups: AdminGroupFund[]; recentEntries: AdminLedgerEntry[];   // 50 mới nhất
+}
+AdminDailyStat = { date: string; checkins: number; penaltyVnd: number }
+AdminGroupRank = {
+  groupId: string; name: string; memberCount: number;
+  settledDays: number; failedDays: number; totalPenalty: number;
+  passRate: number | null;                          // 0..1, null nếu chưa có ngày chốt
+}
+AdminTopPenaltyUser = { userId: string; displayName: string; email: string; totalPenalty: number; failedDays: number }
+AdminStatsOverview = { dailyTrend: AdminDailyStat[]; groupRanking: AdminGroupRank[]; topPenaltyUsers: AdminTopPenaltyUser[] }
+AdminJobStatus = {
+  id: string; name: string; cron: string; description: string;
+  nextExecutionUtc: string | null; lastExecutionUtc: string | null;   // ISO-8601 UTC (chưa có → null)
+}
+AdminAuditLog = {
+  id: string; adminId: string; adminName: string;
+  action: "BAN" | "UNBAN" | "RENAME" | "SET_PASSWORD" | "GRANT_ADMIN" | "REVOKE_ADMIN" | "SETTLE" | "FINALIZE" | "ACTIVATE" | "ANNOUNCE";
+  targetType: string | null; targetId: string | null; detail: string | null; createdAt: string;
+}
+AdminAuditLogList = { total: number; logs: AdminAuditLog[] }
+AnnounceResult = { message: string; senderName: string; sentAt: string }
 ```
 
-| Method | Path                      | Request / Query                                                                             | Response                                                                                  |
-| ------ | ------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| GET    | `/admin/stats`            | —                                                                                           | `200 AdminStats`                                                                          |
-| GET    | `/admin/users`            | `search?` (tên/email, không phân biệt hoa thường), `page=1`, `pageSize=20` (clamped 1..100) | `200 AdminUserList` (sắp `createdAt` giảm)                                                |
-| GET    | `/admin/users/{id}`       | —                                                                                           | `200 AdminUserDetail` · `404` không tồn tại                                               |
-| POST   | `/admin/users/{id}/admin` | —                                                                                           | `204` (cấp quyền admin)                                                                   |
-| DELETE | `/admin/users/{id}/admin` | —                                                                                           | `204` (thu hồi) · `422` nếu tự thu hồi chính mình                                         |
-| GET    | `/admin/groups`           | —                                                                                           | `200 AdminGroupList`                                                                      |
-| GET    | `/admin/groups/{id}`      | —                                                                                           | `200 AdminGroupDetail` · `404` không tồn tại                                              |
-| POST   | `/admin/settle`           | `?date=yyyy-MM-dd` (mặc định hôm nay)                                                       | `200 { date, status }` — **chỉ `ASPNETCORE_ENVIRONMENT=Development`, production trả 403** |
-| POST   | `/admin/finalize`         | `?date=yyyy-MM-dd`                                                                          | như trên                                                                                  |
-| POST   | `/admin/activate`         | —                                                                                           | như trên                                                                                  |
+| Method | Path                         | Request / Query                                                                                                  | Response                                                                                      |
+| ------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| GET    | `/admin/stats`               | —                                                                                                                | `200 AdminStats`                                                                              |
+| GET    | `/admin/stats/overview`      | —                                                                                                                | `200 AdminStatsOverview` (xu hướng 14 ngày, xếp hạng nhóm, top 10 phạt)                       |
+| GET    | `/admin/users`               | `search?` (tên/email, không phân biệt hoa thường), `page=1`, `pageSize=20` (clamped 1..100)                      | `200 AdminUserList` (sắp `createdAt` giảm)                                                    |
+| GET    | `/admin/users/{id}`          | —                                                                                                                | `200 AdminUserDetail` · `404` không tồn tại                                                   |
+| POST   | `/admin/users/{id}/admin`    | —                                                                                                                | `204` (cấp quyền admin)                                                                       |
+| DELETE | `/admin/users/{id}/admin`    | —                                                                                                                | `204` (thu hồi) · `422` nếu tự thu hồi chính mình                                             |
+| POST   | `/admin/users/{id}/ban`      | —                                                                                                                | `200 UserDto` · `422` nếu tự chặn chính mình. Mọi request của user đó sau đó → `403` (banned) |
+| DELETE | `/admin/users/{id}/ban`      | —                                                                                                                | `200 UserDto` (bỏ chặn)                                                                       |
+| PATCH  | `/admin/users/{id}`          | `{ displayName: string }` (trim, 1–100 ký tự)                                                                    | `200 UserDto` · `422` tên rỗng/quá dài                                                        |
+| POST   | `/admin/users/{id}/password` | `{ newPassword: string }` (8–128 ký tự)                                                                          | `204` · `422` nếu user Google (không có `username`)                                           |
+| GET    | `/admin/groups`              | —                                                                                                                | `200 AdminGroupList`                                                                          |
+| GET    | `/admin/groups/{id}`         | —                                                                                                                | `200 AdminGroupDetail` · `404` không tồn tại                                                  |
+| GET    | `/admin/activities`          | `search?` (tên hoạt động / tên kỳ), `type?` (`DEADLINE\|DURATION\|WINDOW`, ignore case), `page=1`, `pageSize=20` | `200 AdminActivityList` (sắp `startDate` giảm)                                                |
+| GET    | `/admin/fund`                | —                                                                                                                | `200 AdminFund`                                                                               |
+| GET    | `/admin/jobs`                | —                                                                                                                | `200 AdminJobStatus[]` (5 job, thứ tự catalog; next/last `null` nếu chưa có)                  |
+| GET    | `/admin/audit-logs`          | `page=1`, `pageSize=30` (clamped 1..100)                                                                         | `200 AdminAuditLogList` (sắp `createdAt` giảm)                                                |
+| POST   | `/admin/announce`            | `{ message: string }` (1–500 ký tự)                                                                              | `200 AnnounceResult` + broadcast SignalR `Announcement` tới mọi client                        |
+| POST   | `/admin/settle`              | `?date=yyyy-MM-dd` (mặc định hôm nay)                                                                            | `200 { date, status }` — **chỉ `ASPNETCORE_ENVIRONMENT=Development`, production trả 403**     |
+| POST   | `/admin/finalize`            | `?date=yyyy-MM-dd`                                                                                               | như trên                                                                                      |
+| POST   | `/admin/activate`            | —                                                                                                                | như trên                                                                                      |
+
+Mọi endpoint admin đều ghi `admin_audit_logs` (trừ read-only). Mật khẩu không bao giờ xuất hiện trong `detail`.
 
 ## 3. Luồng upload media (Cloudinary signed)
 
@@ -380,6 +429,12 @@ Avatar: bước 1-4 với `POST /me/avatar/intent` rồi `PUT /me/avatar { publi
 | `DailyResultUpdated` | `{ userId, date, failedCount, penaltyAmount, status }`                                    |
 | `MemberPresence`     | `{ userId, online }` (online = đang có ≥1 hub connection)                                 |
 | `ProfileUpdated`     | `{ userId, displayName, avatarUrl }`                                                      |
+
+- Ngoài ra, event **toàn hệ thống** (gửi `Clients.All`, không cần join nhóm):
+
+| Event          | Payload                                                                                 |
+| -------------- | --------------------------------------------------------------------------------------- |
+| `Announcement` | `{ message, senderName, at }` — admin gửi qua `POST /admin/announce`; client hiện toast |
 
 - Reconnect: client gọi lại `GET /groups/{id}/live` hoặc query liên quan để đồng bộ snapshot.
 

@@ -14,7 +14,7 @@ namespace HabitCheckin.Application.Admin;
 
 public sealed record AdminUserSummaryDto(
     string Id, string DisplayName, string Email, string? AvatarUrl,
-    bool IsAdmin, int GroupCount, string CreatedAt, string? LastLoginAt);
+    bool IsAdmin, bool IsBanned, int GroupCount, string CreatedAt, string? LastLoginAt);
 
 public sealed record AdminStatsDto(
     int TotalUsers,
@@ -27,7 +27,7 @@ public sealed record AdminStatsDto(
     List<AdminUserSummaryDto> RecentUsers);
 
 public sealed record AdminUserDto(
-    string Id, string DisplayName, string Email, string? Username, string? AvatarUrl, bool IsAdmin,
+    string Id, string DisplayName, string Email, string? Username, string? AvatarUrl, bool IsAdmin, bool IsBanned,
     string CreatedAt, string? LastLoginAt, int GroupCount,
     int SettledDays, int FailedDays, long TotalPenaltyVnd);
 
@@ -81,7 +81,7 @@ public sealed class AdminStatsHandler(IAppDbContext db, IClock clock) : IRequest
             totalUsers, totalGroups, activeChallenges, draftChallenges,
             checkinsToday, penaltyToday, penaltyTotal,
             recentUsers.Select(u => new AdminUserSummaryDto(
-                u.Id.ToString(), u.DisplayName, u.Email, u.AvatarUrl, u.IsAdmin,
+                u.Id.ToString(), u.DisplayName, u.Email, u.AvatarUrl, u.IsAdmin, u.IsBanned,
                 groupCounts.GetValueOrDefault(u.Id), Fmt.Iso(u.CreatedAt)!, Fmt.Iso(u.LastLoginAt))).ToList());
     }
 }
@@ -115,6 +115,7 @@ public sealed class AdminUsersHandler(IAppDbContext db) : IRequestHandler<AdminU
                 u.Username,
                 u.AvatarUrl,
                 u.IsAdmin,
+                u.IsBanned,
                 u.CreatedAt,
                 u.LastLoginAt,
                 GroupCount = db.GroupMembers.Count(m => m.UserId == u.Id),
@@ -125,7 +126,7 @@ public sealed class AdminUsersHandler(IAppDbContext db) : IRequestHandler<AdminU
             .ToListAsync(ct);
 
         return new AdminUserListDto(total, users.Select(u => new AdminUserDto(
-            u.Id.ToString(), u.DisplayName, u.Email, u.Username, u.AvatarUrl, u.IsAdmin,
+            u.Id.ToString(), u.DisplayName, u.Email, u.Username, u.AvatarUrl, u.IsAdmin, u.IsBanned,
             Fmt.Iso(u.CreatedAt)!, Fmt.Iso(u.LastLoginAt),
             u.GroupCount, u.SettledDays, u.FailedDays, u.TotalPenalty)).ToList());
     }
@@ -148,7 +149,8 @@ public sealed class AdminUserDetailHandler(IAppDbContext db) : IRequestHandler<A
         var failedDays = await db.DailyResults.CountAsync(r => r.UserId == user.Id && r.FailedCount > 0, ct);
         var totalPenalty = await db.DailyResults.Where(r => r.UserId == user.Id).SumAsync(r => (long?)r.PenaltyAmount) ?? 0;
         var userDto = new AdminUserDto(
-            user.Id.ToString(), user.DisplayName, user.Email, user.Username, user.AvatarUrl, user.IsAdmin,
+            user.Id.ToString(), user.DisplayName, user.Email, user.Username, user.AvatarUrl,
+            user.IsAdmin, user.IsBanned,
             Fmt.Iso(user.CreatedAt)!, Fmt.Iso(user.LastLoginAt), groupCount, settledDays, failedDays, totalPenalty);
 
         var memberships = await db.GroupMembers.AsNoTracking()
@@ -282,7 +284,7 @@ public sealed class AdminGroupDetailHandler(IAppDbContext db) : IRequestHandler<
 
 public sealed record SetUserAdminCommand(Guid UserId, bool IsAdmin) : IRequest<UserDto>;
 
-public sealed class SetUserAdminHandler(IAppDbContext db, ICurrentUser current)
+public sealed class SetUserAdminHandler(IAppDbContext db, ICurrentUser current, IClock clock)
     : IRequestHandler<SetUserAdminCommand, UserDto>
 {
     public async Task<UserDto> Handle(SetUserAdminCommand request, CancellationToken ct)
@@ -293,6 +295,15 @@ public sealed class SetUserAdminHandler(IAppDbContext db, ICurrentUser current)
         var user = await db.Users.FirstOrDefaultAsync(u => u.Id == request.UserId, ct)
             ?? throw new NotFoundException("Không tìm thấy người dùng");
         user.IsAdmin = request.IsAdmin;
+        db.AdminAuditLogs.Add(new AdminAuditLog
+        {
+            AdminId = current.Id,
+            Action = request.IsAdmin ? "GRANT_ADMIN" : "REVOKE_ADMIN",
+            TargetType = "USER",
+            TargetId = user.Id,
+            Detail = $"User {user.DisplayName} <{user.Email}> {(request.IsAdmin ? "được cấp" : "bị thu hồi")} quyền admin",
+            CreatedAt = clock.UtcNow
+        });
         await db.SaveChangesAsync(ct);
         return user.ToDto();
     }

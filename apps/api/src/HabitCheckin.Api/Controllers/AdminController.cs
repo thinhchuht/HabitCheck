@@ -1,5 +1,6 @@
 using HabitCheckin.Application.Admin;
 using HabitCheckin.Application.Abstractions;
+using HabitCheckin.Application.Dtos;
 using HabitCheckin.Application.Services;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -10,17 +11,24 @@ namespace HabitCheckin.Api.Controllers;
 /// <summary>
 /// Khu quản trị — chỉ user có quyền admin (JWT role "admin").
 /// Các endpoint "job" (settle/finalize/activate) chỉ chạy ở môi trường Development.
+/// Mọi thao tác quản lý đều ghi audit log (xem GET /admin/audit-logs).
 /// </summary>
 [ApiController]
 [Route("api/admin")]
 [Authorize(Policy = "Admin")]
-public sealed class AdminController(ISender sender, ISettlementService settlement, IClock clock, IWebHostEnvironment env) : ControllerBase
+public sealed class AdminController(
+    ISender sender, ISettlementService settlement, IClock clock, ICurrentUser currentUser,
+    IJobStatusProvider jobs, IWebHostEnvironment env) : ControllerBase
 {
     // ---------- Thống kê tổng quan ----------
 
     [HttpGet("stats")]
     public async Task<ActionResult<AdminStatsDto>> Stats(CancellationToken ct) =>
         Ok(await sender.Send(new AdminStatsQuery(), ct));
+
+    [HttpGet("stats/overview")]
+    public async Task<ActionResult<AdminStatsOverviewDto>> StatsOverview(CancellationToken ct) =>
+        Ok(await sender.Send(new AdminStatsOverviewQuery(), ct));
 
     // ---------- Users ----------
 
@@ -48,6 +56,25 @@ public sealed class AdminController(ISender sender, ISettlementService settlemen
         return NoContent();
     }
 
+    [HttpPost("users/{id:guid}/ban")]
+    public async Task<ActionResult<UserDto>> Ban(Guid id, CancellationToken ct) =>
+        Ok(await sender.Send(new BanUserCommand(id, true), ct));
+
+    [HttpDelete("users/{id:guid}/ban")]
+    public async Task<ActionResult<UserDto>> Unban(Guid id, CancellationToken ct) =>
+        Ok(await sender.Send(new BanUserCommand(id, false), ct));
+
+    [HttpPatch("users/{id:guid}")]
+    public async Task<ActionResult<UserDto>> Rename(Guid id, [FromBody] RenameUserRequest body, CancellationToken ct) =>
+        Ok(await sender.Send(new RenameUserCommand(id, body.DisplayName), ct));
+
+    [HttpPost("users/{id:guid}/password")]
+    public async Task<IActionResult> SetPassword(Guid id, [FromBody] SetUserPasswordRequest body, CancellationToken ct)
+    {
+        await sender.Send(new SetUserPasswordCommand(id, body.NewPassword), ct);
+        return NoContent();
+    }
+
     // ---------- Groups ----------
 
     [HttpGet("groups")]
@@ -58,6 +85,36 @@ public sealed class AdminController(ISender sender, ISettlementService settlemen
     public async Task<ActionResult<AdminGroupDetailDto>> GroupDetail(Guid id, CancellationToken ct) =>
         Ok(await sender.Send(new AdminGroupDetailQuery(id), ct));
 
+    // ---------- Hoạt động (mọi nhóm) ----------
+
+    [HttpGet("activities")]
+    public async Task<ActionResult<AdminActivityListDto>> Activities(
+        [FromQuery] string? search, [FromQuery] string? type,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
+        CancellationToken ct = default) =>
+        Ok(await sender.Send(new AdminActivitiesQuery(search, type, page, pageSize), ct));
+
+    // ---------- Quỹ phạt toàn hệ thống ----------
+
+    [HttpGet("fund")]
+    public async Task<ActionResult<AdminFundDto>> Fund(CancellationToken ct) =>
+        Ok(await sender.Send(new AdminFundQuery(), ct));
+
+    // ---------- Vận hành ----------
+
+    [HttpGet("jobs")]
+    public async Task<ActionResult<IReadOnlyList<JobStatusInfo>>> Jobs(CancellationToken ct) =>
+        Ok(await jobs.GetJobsAsync(ct));
+
+    [HttpGet("audit-logs")]
+    public async Task<ActionResult<AdminAuditLogListDto>> AuditLogs(
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 30, CancellationToken ct = default) =>
+        Ok(await sender.Send(new AuditLogsQuery(page, pageSize), ct));
+
+    [HttpPost("announce")]
+    public async Task<ActionResult<AnnounceResultDto>> Announce([FromBody] AnnounceRequest body, CancellationToken ct) =>
+        Ok(await sender.Send(new AnnounceCommand(body.Message), ct));
+
     // ---------- Chạy job theo ngày (chỉ Development) ----------
 
     [HttpPost("settle")]
@@ -66,6 +123,8 @@ public sealed class AdminController(ISender sender, ISettlementService settlemen
         if (!env.IsDevelopment()) return Forbid();
         var d = ParseDate(date);
         await settlement.SettleDayAsync(d, closeOpenSessions: true, ct);
+        await sender.Send(new LogAdminAuditCommand(currentUser.Id, "SETTLE", null, null,
+            $"Chạy settle cho ngày {d:yyyy-MM-dd} (kết quả PROVISIONAL)"), ct);
         return Ok(new { date = d.ToString("yyyy-MM-dd"), status = "PROVISIONAL" });
     }
 
@@ -75,6 +134,8 @@ public sealed class AdminController(ISender sender, ISettlementService settlemen
         if (!env.IsDevelopment()) return Forbid();
         var d = ParseDate(date);
         await settlement.FinalizeDayAsync(d, ct);
+        await sender.Send(new LogAdminAuditCommand(currentUser.Id, "FINALIZE", null, null,
+            $"Chạy finalize cho ngày {d:yyyy-MM-dd} (chốt FINAL + ghi quỹ)"), ct);
         return Ok(new { date = d.ToString("yyyy-MM-dd"), status = "FINAL" });
     }
 
@@ -83,6 +144,8 @@ public sealed class AdminController(ISender sender, ISettlementService settlemen
     {
         if (!env.IsDevelopment()) return Forbid();
         await settlement.ActivateChallengesAsync(ct);
+        await sender.Send(new LogAdminAuditCommand(currentUser.Id, "ACTIVATE", null, null,
+            "Chạy kích hoạt challenge (DRAFT→ACTIVE)"), ct);
         return Ok(new { status = "OK" });
     }
 
@@ -91,3 +154,7 @@ public sealed class AdminController(ISender sender, ISettlementService settlemen
             ? clock.TodayLocal
             : d;
 }
+
+public sealed record RenameUserRequest(string DisplayName);
+public sealed record SetUserPasswordRequest(string NewPassword);
+public sealed record AnnounceRequest(string Message);
