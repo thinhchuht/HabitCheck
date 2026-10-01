@@ -253,7 +253,7 @@ public class AdminHandlersTests
     public async Task GroupDetail_ReturnsMembersAndChallenges()
     {
         var (db, owner, member, group, challenge) = await NewContextAsync();
-        var handler = new AdminGroupDetailHandler(db);
+        var handler = new AdminGroupDetailHandler(db, new FakeUser(owner.Id));
 
         var result = await handler.Handle(new AdminGroupDetailQuery(group.Id), default);
 
@@ -267,8 +267,8 @@ public class AdminHandlersTests
     [Fact]
     public async Task GroupDetail_UnknownGroup_ThrowsNotFound()
     {
-        var (db, _, _, _, _) = await NewContextAsync();
-        var handler = new AdminGroupDetailHandler(db);
+        var (db, owner, _, _, _) = await NewContextAsync();
+        var handler = new AdminGroupDetailHandler(db, new FakeUser(owner.Id));
 
         var act = () => handler.Handle(new AdminGroupDetailQuery(Guid.NewGuid()), default);
         await act.Should().ThrowAsync<NotFoundException>();

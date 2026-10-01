@@ -255,7 +255,7 @@ public sealed class AdminGroupsHandler(IAppDbContext db) : IRequestHandler<Admin
 
 public sealed record AdminGroupDetailQuery(Guid GroupId) : IRequest<AdminGroupDetailDto>;
 
-public sealed class AdminGroupDetailHandler(IAppDbContext db) : IRequestHandler<AdminGroupDetailQuery, AdminGroupDetailDto>
+public sealed class AdminGroupDetailHandler(IAppDbContext db, ICurrentUser user) : IRequestHandler<AdminGroupDetailQuery, AdminGroupDetailDto>
 {
     public async Task<AdminGroupDetailDto> Handle(AdminGroupDetailQuery request, CancellationToken ct)
     {
@@ -263,7 +263,7 @@ public sealed class AdminGroupDetailHandler(IAppDbContext db) : IRequestHandler<
             .FirstOrDefaultAsync(g => g.Id == request.GroupId, ct)
             ?? throw new NotFoundException("Không tìm thấy nhóm");
 
-        var groupDto = await GroupDtoHelper.ToDtoAsync(db, group, ct);
+        var groupDto = await GroupDtoHelper.ToDtoAsync(db, group, user.Id, ct);
         var challenges = await db.Challenges.AsNoTracking()
             .Where(c => c.GroupId == group.Id)
             .ToListAsync(ct);

@@ -6,6 +6,10 @@ public sealed record PenaltyTiersDto(long[] Tiers, long ExtraPerActivity);
 
 public sealed record MemberDto(string UserId, string DisplayName, string? AvatarUrl, string Role, string JoinedAt);
 
+/// Kỳ gần nhất (theo end_date) chưa huỷ của user đang xem trong nhóm — null nếu user chưa có kỳ.
+/// Frontend dùng để lọc "nhóm chưa hết hạn" (myChallenge == null || endDate >= hôm nay).
+public sealed record MyChallengeInfoDto(string Status, string EndDate);
+
 public sealed record GroupDto(
     string Id,
     string Name,
@@ -14,7 +18,8 @@ public sealed record GroupDto(
     PenaltyTiersDto PenaltyTiers,
     int ReviewWindowHours,
     string CreatedAt,
-    List<MemberDto> Members);
+    List<MemberDto> Members,
+    MyChallengeInfoDto? MyChallenge = null);
 
 public sealed record CreateGroupCommand(string Name) : IRequest<GroupDto>;
 public sealed record JoinGroupCommand(string InviteCode) : IRequest<GroupDto>;

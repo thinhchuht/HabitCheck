@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GOOGLE_CLIENT_ID } from "@/lib/constants";
+import { isGroupExpired } from "@/lib/group";
 import { useAppStore } from "@/store/app";
 import { useAuthStore } from "@/store/auth";
 
@@ -28,7 +29,8 @@ export function LoginPage() {
     if (accessToken && user) navigate("/today", { replace: true });
   }, [accessToken, user, navigate]);
 
-  /** Chạy sau khi có access token (cả 2 luồng Google / password). */
+  /** Chạy sau khi có access token (cả 2 luồng Google / password).
+   *  Mặc định vào nhóm đầu tiên chưa hết hạn — không cần chọn thủ công. */
   async function afterLogin() {
     const me = await meApi.get();
     useAuthStore.getState().setUser(me);
@@ -36,17 +38,14 @@ export function LoginPage() {
       navigate("/admin", { replace: true });
       return;
     }
-    const storedGroupId = useAppStore.getState().selectedGroupId;
-    if (storedGroupId) {
-      try {
-        await groupsApi.get(storedGroupId);
-        navigate("/today", { replace: true });
-        return;
-      } catch {
-        useAppStore.getState().setSelectedGroupId(null);
-      }
+    const groups = await groupsApi.mine();
+    const firstActive = groups.find((g) => !isGroupExpired(g));
+    if (firstActive) {
+      useAppStore.getState().setSelectedGroupId(firstActive.id);
+      navigate("/today", { replace: true });
+    } else {
+      navigate("/onboarding", { replace: true });
     }
-    navigate("/onboarding", { replace: true });
   }
 
   async function handleCredential(credential: string) {

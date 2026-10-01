@@ -57,6 +57,12 @@ export interface PenaltyTiers {
   extraPerActivity: number;
 }
 
+/** Kỳ gần nhất (chưa huỷ) của user đang xem trong nhóm — null nếu chưa có kỳ. */
+export interface MyChallengeInfoDto {
+  status: ChallengeStatus;
+  endDate: string;
+}
+
 export interface GroupDto {
   id: string;
   name: string;
@@ -66,6 +72,7 @@ export interface GroupDto {
   reviewWindowHours: number;
   createdAt: string;
   members: MemberDto[];
+  myChallenge: MyChallengeInfoDto | null;
 }
 
 export interface ActivityDto {

@@ -12,8 +12,9 @@ namespace HabitCheckin.Application.Groups;
 
 internal static class GroupDtoHelper
 {
-    /// Load danh sách thành viên kèm user rồi map GroupDto.
-    public static async Task<GroupDto> ToDtoAsync(IAppDbContext db, Group group, CancellationToken ct)
+    /// Load danh sách thành viên kèm user rồi map GroupDto; kèm kỳ gần nhất
+    /// (chưa huỷ, theo end_date) của user đang xem trong nhóm → GroupDto.MyChallenge.
+    public static async Task<GroupDto> ToDtoAsync(IAppDbContext db, Group group, Guid viewerId, CancellationToken ct)
     {
         var members = await db.GroupMembers.AsNoTracking()
             .Where(m => m.GroupId == group.Id)
@@ -22,7 +23,17 @@ internal static class GroupDtoHelper
         var userDict = await db.Users.AsNoTracking()
             .Where(u => members.Select(m => m.UserId).Contains(u.Id))
             .ToDictionaryAsync(u => u.Id, ct);
-        return group.ToDto(members.Select(m => (m, userDict[m.UserId])).ToList());
+        var challenge = await db.Challenges.AsNoTracking()
+            .Where(c => c.GroupId == group.Id && c.UserId == viewerId && c.Status != ChallengeStatus.Cancelled)
+            .OrderByDescending(c => c.EndDate)
+            .FirstOrDefaultAsync(ct);
+        var dto = group.ToDto(members.Select(m => (m, userDict[m.UserId])).ToList());
+        return dto with
+        {
+            MyChallenge = challenge is null
+                ? null
+                : new MyChallengeInfoDto(challenge.Status.ToString().ToUpperInvariant(), Fmt.Date(challenge.EndDate))
+        };
     }
 }
 
@@ -57,7 +68,7 @@ public sealed class CreateGroupHandler(IAppDbContext db, ICurrentUser user, IClo
             JoinedAt = clock.UtcNow
         });
         await db.SaveChangesAsync(ct);
-        return await GroupDtoHelper.ToDtoAsync(db, group, ct);
+        return await GroupDtoHelper.ToDtoAsync(db, group, user.Id, ct);
     }
 
     private static async Task<string> NewUniqueCodeAsync(IAppDbContext db, CancellationToken ct)
@@ -103,7 +114,7 @@ public sealed class JoinGroupHandler(IAppDbContext db, ICurrentUser user, IClock
             });
             await db.SaveChangesAsync(ct);
         }
-        return await GroupDtoHelper.ToDtoAsync(db, group, ct);
+        return await GroupDtoHelper.ToDtoAsync(db, group, user.Id, ct);
     }
 }
 
@@ -130,7 +141,7 @@ public sealed class GetMyGroupsHandler(IAppDbContext db, ICurrentUser user)
         foreach (var m in memberships)
         {
             if (!byId.TryGetValue(m.GroupId, out var g)) continue;
-            result.Add(await GroupDtoHelper.ToDtoAsync(db, g, ct));
+            result.Add(await GroupDtoHelper.ToDtoAsync(db, g, user.Id, ct));
         }
         return result;
     }
@@ -147,7 +158,7 @@ public sealed class GetGroupHandler(IAppDbContext db, ICurrentUser user) : IRequ
         await EnsureMemberAsync(request.GroupId, ct);
         var group = await db.Groups.AsNoTracking().FirstOrDefaultAsync(g => g.Id == request.GroupId, ct)
             ?? throw new NotFoundException("Không tìm thấy nhóm");
-        return await GroupDtoHelper.ToDtoAsync(db, group, ct);
+        return await GroupDtoHelper.ToDtoAsync(db, group, user.Id, ct);
     }
 
     internal async Task EnsureMemberAsync(Guid groupId, CancellationToken ct)
@@ -201,7 +212,7 @@ public sealed class UpdatePenaltyTiersHandler(IAppDbContext db, ICurrentUser use
 
         group.PenaltyTiers = new PenaltyTiers(cmd.Tiers, cmd.ExtraPerActivity);
         await db.SaveChangesAsync(ct);
-        return await GroupDtoHelper.ToDtoAsync(db, group, ct);
+        return await GroupDtoHelper.ToDtoAsync(db, group, user.Id, ct);
     }
 }
 

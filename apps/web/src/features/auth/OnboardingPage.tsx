@@ -18,7 +18,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { groupAvatarClass, groupInitial } from "@/lib/group";
+import { fmtDate } from "@/lib/format";
+import { groupAvatarClass, groupInitial, isGroupExpired } from "@/lib/group";
 import { useAppStore } from "@/store/app";
 import { useAuthStore } from "@/store/auth";
 import type { GroupDto } from "@/types/api";
@@ -143,9 +144,18 @@ export function OnboardingPage() {
                                 {isOwner ? (
                                   <Badge variant="secondary">Chủ nhóm</Badge>
                                 ) : null}
+                                {isGroupExpired(g) ? (
+                                  <Badge variant="outline">Đã hết hạn</Badge>
+                                ) : null}
                               </div>
                               <p className="mt-0.5 text-xs text-slate-500">
                                 {g.members.length} thành viên
+                                {g.myChallenge ? (
+                                  <span>
+                                    {" "}
+                                    · kỳ đến {fmtDate(g.myChallenge.endDate)}
+                                  </span>
+                                ) : null}
                               </p>
                             </div>
                           </div>

@@ -1,3 +1,15 @@
+import type { GroupDto } from "@/types/api";
+import { vnNow } from "./format";
+
+/**
+ * Nhóm "hết hạn" khi kỳ gần nhất (chưa huỷ) của user trong nhóm đã có
+ * end_date trước hôm nay (giờ VN). Không có kỳ → chưa hết hạn.
+ */
+export function isGroupExpired(group: GroupDto): boolean {
+  if (!group.myChallenge) return false;
+  return group.myChallenge.endDate < vnNow().format("YYYY-MM-DD");
+}
+
 /** Bộ màu pastel cho avatar nhóm — cố định theo id để màu không nhảy khi refresh. */
 const GROUP_AVATAR_PALETTE = [
   "bg-indigo-100 text-indigo-700",

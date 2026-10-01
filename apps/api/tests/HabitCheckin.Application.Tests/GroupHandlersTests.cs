@@ -193,4 +193,80 @@ public class GroupHandlersTests
 
         await act.Should().ThrowAsync<BusinessRuleException>();
     }
+
+    private static async Task<Challenge> AddChallengeAsync(
+        AppDbContext db, Group group, User user, ChallengeStatus status, DateOnly start, DateOnly end)
+    {
+        var c = new Challenge
+        {
+            GroupId = group.Id,
+            UserId = user.Id,
+            Title = "Kỳ",
+            StartDate = start,
+            EndDate = end,
+            Status = status,
+            CreatedAt = Now
+        };
+        db.Challenges.Add(c);
+        await db.SaveChangesAsync();
+        return c;
+    }
+
+    [Fact]
+    public async Task GetMyGroups_IncludesMyChallengeToDetectExpiredGroups()
+    {
+        var (db, owner, clock) = await NewContextAsync();
+        var gActive = await CreateGroupAsync(db, owner, clock);
+        var gDone = await CreateGroupAsync(db, owner, clock);
+        var gEmpty = await CreateGroupAsync(db, owner, clock);
+        var gNext = await CreateGroupAsync(db, owner, clock);
+
+        // VN hôm nay = 2025-01-15
+        await AddChallengeAsync(db, gActive, owner, ChallengeStatus.Active,
+            new DateOnly(2025, 1, 1), new DateOnly(2025, 1, 31));
+        await AddChallengeAsync(db, gDone, owner, ChallengeStatus.Completed,
+            new DateOnly(2024, 12, 1), new DateOnly(2024, 12, 31));
+        // 2 kỳ nối tiếp: chọn kỳ có end_date gần nhất (DRAFT tương lai), không phải kỳ đã kết thúc
+        await AddChallengeAsync(db, gNext, owner, ChallengeStatus.Active,
+            new DateOnly(2025, 1, 1), new DateOnly(2025, 1, 10));
+        await AddChallengeAsync(db, gNext, owner, ChallengeStatus.Draft,
+            new DateOnly(2025, 2, 1), new DateOnly(2025, 2, 28));
+
+        var handler = new GetMyGroupsHandler(db, new FakeUser(owner.Id));
+        var result = await handler.Handle(new GetMyGroupsQuery(), default);
+
+        result.Should().HaveCount(4);
+        var byId = result.ToDictionary(g => g.Id);
+
+        var active = byId[gActive.Id.ToString()];
+        active.MyChallenge.Should().NotBeNull();
+        active.MyChallenge!.Status.Should().Be("ACTIVE");
+        active.MyChallenge.EndDate.Should().Be("2025-01-31");
+
+        var done = byId[gDone.Id.ToString()];
+        done.MyChallenge.Should().NotBeNull();
+        done.MyChallenge!.Status.Should().Be("COMPLETED");
+        done.MyChallenge.EndDate.Should().Be("2024-12-31");
+
+        byId[gEmpty.Id.ToString()].MyChallenge.Should().BeNull();
+
+        var next = byId[gNext.Id.ToString()];
+        next.MyChallenge.Should().NotBeNull();
+        next.MyChallenge!.Status.Should().Be("DRAFT");
+        next.MyChallenge.EndDate.Should().Be("2025-02-28");
+    }
+
+    [Fact]
+    public async Task GetMyGroups_IgnoresCancelledChallenges()
+    {
+        var (db, owner, clock) = await NewContextAsync();
+        var group = await CreateGroupAsync(db, owner, clock);
+        await AddChallengeAsync(db, group, owner, ChallengeStatus.Cancelled,
+            new DateOnly(2025, 1, 1), new DateOnly(2025, 1, 31));
+
+        var handler = new GetMyGroupsHandler(db, new FakeUser(owner.Id));
+        var result = await handler.Handle(new GetMyGroupsQuery(), default);
+
+        result.Single().MyChallenge.Should().BeNull();
+    }
 }
