@@ -17,6 +17,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<ProofReview> ProofReviews => Set<ProofReview>();
     public DbSet<DailyResult> DailyResults => Set<DailyResult>();
     public DbSet<ActivityDayResult> ActivityDayResults => Set<ActivityDayResult>();
+    public DbSet<CheatDay> CheatDays => Set<CheatDay>();
     public DbSet<PenaltyLedgerEntry> PenaltyLedger => Set<PenaltyLedgerEntry>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 

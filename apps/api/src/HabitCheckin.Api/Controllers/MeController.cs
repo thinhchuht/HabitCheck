@@ -1,4 +1,5 @@
 using HabitCheckin.Application.Auth;
+using HabitCheckin.Application.CheatDays;
 using HabitCheckin.Application.Dtos;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -26,4 +27,18 @@ public sealed class MeController(ISender sender) : ControllerBase
     [HttpPut("me/avatar")]
     public async Task<ActionResult<UserDto>> UpdateAvatar([FromBody] UpdateAvatarCommand cmd, CancellationToken ct) =>
         Ok(await sender.Send(cmd, ct));
+
+    // Cheat day: hôm nay hoặc 7 ngày tới, tối đa 1/tuần cho mỗi (user, nhóm)
+    [HttpPost("me/cheat-days")]
+    public async Task<ActionResult<CheatDayDto>> MarkCheatDay([FromBody] MarkCheatDayRequest req, CancellationToken ct) =>
+        CreatedAtAction(nameof(MarkCheatDay), null, await sender.Send(new MarkCheatDayCommand(req.GroupId, req.Date), ct));
+
+    [HttpDelete("me/cheat-days/{date}")]
+    public async Task<IActionResult> UnmarkCheatDay([FromRoute] string date, [FromQuery] Guid groupId, CancellationToken ct)
+    {
+        await sender.Send(new UnmarkCheatDayCommand(groupId, date), ct);
+        return NoContent();
+    }
 }
+
+public sealed record MarkCheatDayRequest(Guid GroupId, string? Date);

@@ -26,6 +26,15 @@ public sealed class GetTodayHandler(IAppDbContext db, ICurrentUser user, IClock 
         var isMember = await db.GroupMembers.AnyAsync(m => m.GroupId == request.GroupId && m.UserId == user.Id, ct);
         if (!isMember) throw new UnauthorizedException("Bạn không phải thành viên của nhóm");
 
+        // Cheat day: mỗi user 1 ngày/tuần (T2–CN) trong nhóm — không cần check-in, không tính phạt.
+        var weekStart = today.AddDays(-(int)today.DayOfWeek);
+        var cheatDaysThisWeek = await db.CheatDays.AsNoTracking()
+            .Where(c => c.UserId == user.Id && c.GroupId == request.GroupId
+                        && c.LocalDate >= weekStart && c.LocalDate <= weekStart.AddDays(6))
+            .Select(c => c.LocalDate)
+            .ToListAsync(ct);
+        var isCheatDay = cheatDaysThisWeek.Contains(today);
+
         var challenge = await db.Challenges
             .Include(c => c.Activities)
             .FirstOrDefaultAsync(c => c.UserId == user.Id && c.GroupId == request.GroupId
@@ -53,17 +62,9 @@ public sealed class GetTodayHandler(IAppDbContext db, ICurrentUser user, IClock 
                 .OrderBy(c => c.CheckinAt)
                 .ToListAsync(ct);
 
-            var group = await db.Groups.AsNoTracking().FirstAsync(g => g.Id == challenge.GroupId, ct);
-
             var evals = new List<(Activity Activity, ActivityEvaluation Eval)>();
             items = challenge.Activities.Select(a =>
             {
-                var eval = ActivityEvaluator.Evaluate(a, today, dayCheckins, tz);
-                evals.Add((a, eval));
-
-                var (state, failReason) = LiveStateHelper.Resolve(a, eval, dayCheckins, today, now, tz);
-                var isLate = LiveStateHelper.IsLate(a, eval, today, now, tz);
-
                 string? deadlineAt = null;
                 if (a.Type == ActivityType.Deadline && a.DeadlineTime is TimeOnly t)
                     // Mốc giờ chính xác — frontend tự tính cửa sổ check-in ±5 phút.
@@ -76,11 +77,25 @@ public sealed class GetTodayHandler(IAppDbContext db, ICurrentUser user, IClock 
                     .Select(c => c.ToDto(a.Name, a.Icon))
                     .ToList();
 
+                if (isCheatDay)
+                    // Cheat day: hiện trung lập, không đánh fail.
+                    return new TodayItemDto(a.ToDto(), "PENDING", null, false, deadlineAt, null, checkins);
+
+                var eval = ActivityEvaluator.Evaluate(a, today, dayCheckins, tz);
+                evals.Add((a, eval));
+
+                var (state, failReason) = LiveStateHelper.Resolve(a, eval, dayCheckins, today, now, tz);
+                var isLate = LiveStateHelper.IsLate(a, eval, today, now, tz);
+
                 return new TodayItemDto(a.ToDto(), state, failReason, isLate, deadlineAt, null, checkins);
             }).ToList();
 
-            expectedPenalty = PenaltyCalculator.Calculate(
-                evals.Select(e => e.Eval), group.PenaltyTiers);
+            if (!isCheatDay)
+            {
+                var group = await db.Groups.AsNoTracking().FirstAsync(g => g.Id == challenge.GroupId, ct);
+                expectedPenalty = PenaltyCalculator.Calculate(
+                    evals.Select(e => e.Eval), group.PenaltyTiers);
+            }
         }
 
         TodayResultDto? result = null;
@@ -89,7 +104,7 @@ public sealed class GetTodayHandler(IAppDbContext db, ICurrentUser user, IClock 
             var dr = await db.DailyResults.AsNoTracking()
                 .FirstOrDefaultAsync(d => d.ChallengeId == challenge.Id && d.LocalDate == today, ct);
             if (dr is not null)
-                result = new TodayResultDto(dr.TotalCount, dr.PassedCount, dr.FailedCount, dr.PenaltyAmount, dr.Status);
+                result = new TodayResultDto(dr.TotalCount, dr.PassedCount, dr.FailedCount, dr.PenaltyAmount, dr.Status, dr.IsCheatDay);
         }
 
         return new TodayDto(
@@ -99,6 +114,8 @@ public sealed class GetTodayHandler(IAppDbContext db, ICurrentUser user, IClock 
             challengeDto,
             items,
             expectedPenalty,
-            result);
+            result,
+            isCheatDay ? Fmt.Date(today) : null,
+            cheatDaysThisWeek.Select(Fmt.Date).ToList());
     }
 }

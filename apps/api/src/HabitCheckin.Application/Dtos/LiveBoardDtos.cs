@@ -10,7 +10,8 @@ public sealed record LiveMemberDto(
     string? AvatarUrl,
     bool Online,
     List<LiveItemDto> Items,
-    long ExpectedPenalty);
+    long ExpectedPenalty,
+    bool IsCheatDay);
 
 public sealed record TickerItemDto(
     string CheckinId,

@@ -16,6 +16,7 @@ public interface IAppDbContext
     DbSet<ProofReview> ProofReviews { get; }
     DbSet<DailyResult> DailyResults { get; }
     DbSet<ActivityDayResult> ActivityDayResults { get; }
+    DbSet<CheatDay> CheatDays { get; }
     DbSet<PenaltyLedgerEntry> PenaltyLedger { get; }
     DbSet<RefreshToken> RefreshTokens { get; }
 

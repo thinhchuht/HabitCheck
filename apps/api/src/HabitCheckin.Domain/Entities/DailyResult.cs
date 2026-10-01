@@ -14,6 +14,7 @@ public class DailyResult
     public int FailedCount { get; set; }
     public long PenaltyAmount { get; set; }
     public ResultStatus Status { get; set; } = ResultStatus.Provisional;
+    public bool IsCheatDay { get; set; }
     public DateTimeOffset ComputedAt { get; set; }
 
     public List<ActivityDayResult> Details { get; set; } = new();

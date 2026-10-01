@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom";
 import { CalendarX2, Target } from "lucide-react";
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { checkinsApi } from "@/api/checkins";
 import { getApiErrorMessage } from "@/api/client";
+import { meApi } from "@/api/me";
 import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +34,9 @@ function ItemBody({ item }: { item: TodayItemDto }) {
 export function TodayPage() {
   const groupId = useAppStore((s) => s.selectedGroupId);
   const setServerOffsetMs = useAppStore((s) => s.setServerOffsetMs);
+  const queryClient = useQueryClient();
+  const [marking, setMarking] = useState(false);
+  const [unmarking, setUnmarking] = useState(false);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["today", groupId],
@@ -79,6 +84,47 @@ export function TodayPage() {
   const total = data.items.length;
   const penalty = data.expectedPenalty;
 
+  const isCheatToday = data.cheatDay === data.date;
+  const cheatDate = data.cheatDay;
+  const canMarkCheat =
+    data.activeChallenge != null &&
+    !isCheatToday &&
+    data.cheatDaysThisWeek.length === 0;
+
+  async function handleMarkCheat() {
+    if (groupId == null || marking) return;
+    setMarking(true);
+    try {
+      await meApi.markCheatDay(groupId);
+      toast.success("Đã đánh dấu cheat day cho hôm nay 🎉");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["today", groupId] }),
+        queryClient.invalidateQueries({ queryKey: ["live", groupId] }),
+      ]);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setMarking(false);
+    }
+  }
+
+  async function handleUnmarkCheat(cheatDate: string) {
+    if (groupId == null || unmarking) return;
+    setUnmarking(true);
+    try {
+      await meApi.unmarkCheatDay(groupId, cheatDate);
+      toast.success("Đã huỷ cheat day hôm nay");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["today", groupId] }),
+        queryClient.invalidateQueries({ queryKey: ["live", groupId] }),
+      ]);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setUnmarking(false);
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -95,7 +141,43 @@ export function TodayPage() {
         <Badge variant={penalty > 0 ? "danger" : "success"}>
           Phạt dự kiến: {formatVND(penalty)}
         </Badge>
+        {isCheatToday ? (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={unmarking}
+            onClick={() =>
+              cheatDate != null && void handleUnmarkCheat(cheatDate)
+            }
+          >
+            {unmarking ? "Đang huỷ…" : "Huỷ cheat day"}
+          </Button>
+        ) : canMarkCheat ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={marking}
+            onClick={() => void handleMarkCheat()}
+          >
+            {marking ? "Đang đánh dấu…" : "🎉 Cheat day hôm nay"}
+          </Button>
+        ) : null}
       </PageHeader>
+
+      {isCheatToday ? (
+        <div className="mb-4 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+          <span className="text-2xl">🎉</span>
+          <div>
+            <p className="font-semibold text-emerald-800">
+              Hôm nay là Cheat Day của bạn!
+            </p>
+            <p className="text-sm text-emerald-700">
+              Không cần check-in, không tính phạt — coi như một ngày nghỉ trong
+              kế hoạch. Mỗi tuần chỉ có 1 cheat day trong nhóm này nhé.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {data.activeChallenge == null ? (
         <EmptyState

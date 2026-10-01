@@ -119,9 +119,11 @@ TodayDto = {
   serverTime: string;              // UTC — client dùng để tính offset đồng hồ
   timezone: "Asia/Ho_Chi_Minh";
   activeChallenge: ChallengeDto | null;
-  items: TodayItemDto[];
-  expectedPenalty: number;         // phạt dự kiến nếu ngày kết thúc với trạng thái hiện tại
-  result: { total: number; passed: number; failed: number; penalty: number; status: ResultStatus } | null; // có khi ngày đã được chốt tạm thời
+  items: TodayItemDto[];           // cheat day: mọi item về trạng thái "PENDING", failReason null
+  expectedPenalty: number;         // phạt dự kiến nếu ngày kết thúc với trạng thái hiện tại (0 nếu cheat day)
+  result: { total: number; passed: number; failed: number; penalty: number; status: ResultStatus; isCheatDay: boolean } | null; // có khi ngày đã được chốt tạm thời
+  cheatDay: string | null;         // = date nếu hôm nay là cheat day của user trong nhóm này
+  cheatDaysThisWeek: string[];     // các ngày cheat day đã đánh dấu trong tuần (T2–CN)
 }
 
 LiveItemDto = {
@@ -135,8 +137,9 @@ LiveItemDto = {
 LiveMemberDto = {                  // phẳng (không lồng `user`)
   userId: string; displayName: string; avatarUrl: string | null;
   online: boolean;
-  items: LiveItemDto[];
-  expectedPenalty: number;         // phạt dự kiến hôm nay nếu ngày kết thúc ở trạng thái hiện tại
+  items: LiveItemDto[];            // cheat day: mọi item "PENDING"
+  expectedPenalty: number;         // phạt dự kiến hôm nay (0 nếu cheat day)
+  isCheatDay: boolean;             // hôm nay là cheat day của thành viên này
 }
 
 TickerItem = {
@@ -219,12 +222,14 @@ FundDto = {
 
 ### Me / Profile
 
-| Method | Path                | Request                                                                                                      | Response                                                                                         |
-| ------ | ------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| GET    | `/me`               | —                                                                                                            | `200 UserDto`                                                                                    |
-| PATCH  | `/me`               | `{ displayName?: string; reminder?: { deadlineAheadMinutes?: number \| null; endOfDayReminder?: boolean } }` | `200 UserDto` (broadcast `ProfileUpdated` nếu đổi tên/avatar)                                    |
-| POST   | `/me/avatar/intent` | —                                                                                                            | `200 UploadIntentResponse` (kind `AVATAR`, folder `avatars/{userId}`, `allowedTypes: ["image"]`) |
-| PUT    | `/me/avatar`        | `{ publicId: string }`                                                                                       | `200 UserDto` (xoá avatar cũ trên Cloudinary, broadcast `ProfileUpdated`)                        |
+| Method | Path                             | Request                                                                                                      | Response                                                                                                                                                  |
+| ------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/me`                            | —                                                                                                            | `200 UserDto`                                                                                                                                             |
+| PATCH  | `/me`                            | `{ displayName?: string; reminder?: { deadlineAheadMinutes?: number \| null; endOfDayReminder?: boolean } }` | `200 UserDto` (broadcast `ProfileUpdated` nếu đổi tên/avatar)                                                                                             |
+| POST   | `/me/avatar/intent`              | —                                                                                                            | `200 UploadIntentResponse` (kind `AVATAR`, folder `avatars/{userId}`, `allowedTypes: ["image"]`)                                                          |
+| PUT    | `/me/avatar`                     | `{ publicId: string }`                                                                                       | `200 UserDto` (xoá avatar cũ trên Cloudinary, broadcast `ProfileUpdated`)                                                                                 |
+| POST   | `/me/cheat-days`                 | `{ groupId: string; date?: "yyyy-MM-dd" }` (mặc định hôm nay)                                                | `201 CheatDayDto`. Chỉ cho hôm nay → +7 ngày; tối đa **1/tuần (T2–CN)** cho mỗi (user, nhóm). `422` ngày đã qua / quá +7 ngày / trùng ngày / tuần đã dùng |
+| DELETE | `/me/cheat-days/{date}?groupId=` | `date: "yyyy-MM-dd"`                                                                                         | `204`. **Chỉ huỷ được cheat day của hôm nay**; `422` nếu khác hôm nay hoặc chưa đánh dấu                                                                  |
 
 ### Groups
 

@@ -154,6 +154,7 @@ export interface TodayResult {
   failed: number;
   penalty: number;
   status: ResultStatus;
+  isCheatDay: boolean;
 }
 
 export interface TodayDto {
@@ -164,6 +165,17 @@ export interface TodayDto {
   items: TodayItemDto[];
   expectedPenalty: number;
   result: TodayResult | null;
+  /** Hôm nay là cheat day thì = date, ngược lại null. */
+  cheatDay: string | null;
+  /** Các ngày cheat day đã đánh dấu trong tuần hiện tại (T2–CN). */
+  cheatDaysThisWeek: string[];
+}
+
+export interface CheatDayDto {
+  id: string;
+  groupId: string;
+  localDate: string;
+  createdAt: string;
 }
 
 export interface LiveBoardItem {
@@ -182,6 +194,7 @@ export interface LiveMemberDto {
   online: boolean;
   items: LiveBoardItem[];
   expectedPenalty: number;
+  isCheatDay: boolean;
 }
 
 export interface TickerItem {

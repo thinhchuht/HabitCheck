@@ -59,6 +59,12 @@ public sealed class LiveBoardHandler(
             .OrderBy(c => c.CheckinAt)
             .ToListAsync(ct);
 
+        // Thành viên đang trong cheat day hôm nay: hiện trung lập, không tính phạt.
+        var cheatTodayUserIds = await db.CheatDays.AsNoTracking()
+            .Where(c => c.GroupId == request.GroupId && c.LocalDate == today)
+            .Select(c => c.UserId)
+            .ToListAsync(ct);
+
         var online = presence.GetOnlineUsers(request.GroupId);
         var memberDtos = new List<LiveMemberDto>();
         var totalExpectedPenalty = 0L;
@@ -67,28 +73,38 @@ public sealed class LiveBoardHandler(
         {
             if (!users.TryGetValue(m.UserId, out var u)) continue;
 
+            var isCheat = cheatTodayUserIds.Contains(m.UserId);
             var items = new List<LiveItemDto>();
             long expected = 0;
             if (challengeByUser.TryGetValue(m.UserId, out var ch))
             {
-                var userCheckins = dayCheckins.Where(c => c.UserId == m.UserId).ToList();
-                var evals = new List<(Activity Activity, ActivityEvaluation Eval)>();
-                foreach (var a in ch.Activities)
+                if (isCheat)
                 {
-                    var eval = ActivityEvaluator.Evaluate(a, today, userCheckins, tz);
-                    evals.Add((a, eval));
-                    var (state, failReason) = LiveStateHelper.Resolve(a, eval, userCheckins, today, now, tz);
-                    var isLate = LiveStateHelper.IsLate(a, eval, today, now, tz);
-                    items.Add(new LiveItemDto(a.Id.ToString(), state, failReason, a.Name, a.Icon, isLate));
+                    items = ch.Activities
+                        .Select(a => new LiveItemDto(a.Id.ToString(), "PENDING", null, a.Name, a.Icon, false))
+                        .ToList();
                 }
-                expected = PenaltyCalculator.Calculate(
-                    evals.Select(e => e.Eval), group.PenaltyTiers);
+                else
+                {
+                    var userCheckins = dayCheckins.Where(c => c.UserId == m.UserId).ToList();
+                    var evals = new List<(Activity Activity, ActivityEvaluation Eval)>();
+                    foreach (var a in ch.Activities)
+                    {
+                        var eval = ActivityEvaluator.Evaluate(a, today, userCheckins, tz);
+                        evals.Add((a, eval));
+                        var (state, failReason) = LiveStateHelper.Resolve(a, eval, userCheckins, today, now, tz);
+                        var isLate = LiveStateHelper.IsLate(a, eval, today, now, tz);
+                        items.Add(new LiveItemDto(a.Id.ToString(), state, failReason, a.Name, a.Icon, isLate));
+                    }
+                    expected = PenaltyCalculator.Calculate(
+                        evals.Select(e => e.Eval), group.PenaltyTiers);
+                }
             }
             totalExpectedPenalty += expected;
 
             memberDtos.Add(new LiveMemberDto(
                 u.Id.ToString(), u.DisplayName, u.AvatarUrl,
-                online.Contains(u.Id), items, expected));
+                online.Contains(u.Id), items, expected, isCheat));
         }
 
         // Ticker: hoạt động mới nhất hôm nay

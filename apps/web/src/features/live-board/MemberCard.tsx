@@ -15,8 +15,15 @@ interface MemberCardProps {
 
 export function MemberCard({ member, meUserId }: MemberCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const { userId, displayName, avatarUrl, online, items, expectedPenalty } =
-    member;
+  const {
+    userId,
+    displayName,
+    avatarUrl,
+    online,
+    items,
+    expectedPenalty,
+    isCheatDay,
+  } = member;
   const isMe = userId === meUserId;
   const passedCount = items.filter((i) => i.status === "PASS").length;
   const totalCount = items.length;
@@ -51,6 +58,7 @@ export function MemberCard({ member, meUserId }: MemberCardProps) {
               {displayName}
             </p>
             {isMe ? <Badge variant="outline">Bạn</Badge> : null}
+            {isCheatDay ? <Badge variant="success">🎉 Cheat day</Badge> : null}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <Badge variant="secondary">

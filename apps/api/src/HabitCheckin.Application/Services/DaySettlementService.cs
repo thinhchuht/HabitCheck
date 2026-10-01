@@ -86,18 +86,10 @@ public class DaySettlementService : ISettlementService
             .ToListAsync(ct);
         if (activities.Count == 0) return;
 
-        var activityIds = activities.Select(a => a.Id).ToList();
-        var checkins = await _db.CheckIns
-            .Where(c => c.UserId == challenge.UserId && c.LocalDate == date && activityIds.Contains(c.ActivityId))
-            .ToListAsync(ct);
-
-        var evaluations = activities
-            .Select(a => (Activity: a, Eval: ActivityEvaluator.Evaluate(
-                a, date, checkins.Where(c => c.ActivityId == a.Id).ToList(), _clock.LocalTimeZone)))
-            .ToList();
-
-        var penalty = PenaltyCalculator.Calculate(
-            evaluations.Select(e => e.Eval), group.PenaltyTiers);
+        // Cheat day (mỗi user 1 ngày/tuần trong nhóm): không đánh giá, không phạt,
+        // vẫn ghi daily_result (Toàn bộ Neutral) để thống kê giữ nguyên chuỗi ngày.
+        var isCheatDay = await _db.CheatDays.AsNoTracking()
+            .AnyAsync(c => c.UserId == challenge.UserId && c.GroupId == challenge.GroupId && c.LocalDate == date, ct);
 
         var result = await _db.DailyResults
             .FirstOrDefaultAsync(r => r.ChallengeId == challengeId && r.LocalDate == date, ct);
@@ -108,26 +100,55 @@ public class DaySettlementService : ISettlementService
         }
 
         result.TotalCount = activities.Count;
-        result.PassedCount = evaluations.Count(e => e.Eval.Passed);
-        result.FailedCount = evaluations.Count(e => !e.Eval.Passed);
-        result.PenaltyAmount = penalty;
+        result.IsCheatDay = isCheatDay;
+
+        if (isCheatDay)
+        {
+            // Không cần check-in: đếm 0 fail, 0 phạt, không ghi chi tiết từng hoạt động.
+            result.PassedCount = 0;
+            result.FailedCount = 0;
+            result.PenaltyAmount = 0;
+
+            var oldDetails = await _db.ActivityDayResults.Where(d => d.DailyResultId == result.Id).ToListAsync(ct);
+            _db.ActivityDayResults.RemoveRange(oldDetails);
+        }
+        else
+        {
+            var activityIds = activities.Select(a => a.Id).ToList();
+            var checkins = await _db.CheckIns
+                .Where(c => c.UserId == challenge.UserId && c.LocalDate == date && activityIds.Contains(c.ActivityId))
+                .ToListAsync(ct);
+
+            var evaluations = activities
+                .Select(a => (Activity: a, Eval: ActivityEvaluator.Evaluate(
+                    a, date, checkins.Where(c => c.ActivityId == a.Id).ToList(), _clock.LocalTimeZone)))
+                .ToList();
+
+            var penalty = PenaltyCalculator.Calculate(
+                evaluations.Select(e => e.Eval), group.PenaltyTiers);
+
+            result.PassedCount = evaluations.Count(e => e.Eval.Passed);
+            result.FailedCount = evaluations.Count(e => !e.Eval.Passed);
+            result.PenaltyAmount = penalty;
+
+            var oldDetails = await _db.ActivityDayResults.Where(d => d.DailyResultId == result.Id).ToListAsync(ct);
+            _db.ActivityDayResults.RemoveRange(oldDetails);
+            foreach (var e in evaluations)
+            {
+                _db.ActivityDayResults.Add(new ActivityDayResult
+                {
+                    DailyResultId = result.Id,
+                    ActivityId = e.Activity.Id,
+                    Passed = e.Eval.Passed,
+                    Reason = e.Eval.Reason,
+                    ActualMinutes = e.Eval.ActualMinutes,
+                    FirstCheckinAt = e.Eval.FirstCheckinAt
+                });
+            }
+        }
+
         result.Status = ResultStatus.Provisional;
         result.ComputedAt = _clock.UtcNow;
-
-        var oldDetails = await _db.ActivityDayResults.Where(d => d.DailyResultId == result.Id).ToListAsync(ct);
-        _db.ActivityDayResults.RemoveRange(oldDetails);
-        foreach (var e in evaluations)
-        {
-            _db.ActivityDayResults.Add(new ActivityDayResult
-            {
-                DailyResultId = result.Id,
-                ActivityId = e.Activity.Id,
-                Passed = e.Eval.Passed,
-                Reason = e.Eval.Reason,
-                ActualMinutes = e.Eval.ActualMinutes,
-                FirstCheckinAt = e.Eval.FirstCheckinAt
-            });
-        }
 
         await _db.SaveChangesAsync(ct);
 

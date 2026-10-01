@@ -165,6 +165,19 @@ internal sealed class DailyResultConfiguration : IEntityTypeConfiguration<DailyR
     }
 }
 
+internal sealed class CheatDayConfiguration : IEntityTypeConfiguration<CheatDay>
+{
+    public void Configure(EntityTypeBuilder<CheatDay> b)
+    {
+        b.ToTable("cheat_days");
+        b.HasKey(x => x.Id);
+        b.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne<Group>().WithMany().HasForeignKey(x => x.GroupId).OnDelete(DeleteBehavior.Cascade);
+        // Một user chỉ có 1 cheat day cho một ngày trong một nhóm
+        b.HasIndex(x => new { x.UserId, x.GroupId, x.LocalDate }).IsUnique();
+    }
+}
+
 internal sealed class ActivityDayResultConfiguration : IEntityTypeConfiguration<ActivityDayResult>
 {
     public void Configure(EntityTypeBuilder<ActivityDayResult> b)

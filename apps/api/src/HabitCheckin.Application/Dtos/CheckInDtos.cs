@@ -52,7 +52,7 @@ public sealed record TodayItemDto(
     TodaySessionDto? Session,
     List<CheckInDto> Checkins);
 
-public sealed record TodayResultDto(int Total, int Passed, int Failed, long Penalty, ResultStatus Status);
+public sealed record TodayResultDto(int Total, int Passed, int Failed, long Penalty, ResultStatus Status, bool IsCheatDay);
 
 public sealed record TodayDto(
     string Date,
@@ -61,4 +61,6 @@ public sealed record TodayDto(
     ChallengeDto? ActiveChallenge,
     List<TodayItemDto> Items,
     long ExpectedPenalty,
-    TodayResultDto? Result);
+    TodayResultDto? Result,
+    string? CheatDay,
+    List<string> CheatDaysThisWeek);
