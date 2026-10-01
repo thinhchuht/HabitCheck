@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, KeyRound, Users, UsersRound } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
@@ -31,6 +31,7 @@ function pickGroup(group: GroupDto, navigate: (to: string) => void): void {
 
 export function OnboardingPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const me = useAuthStore((s) => s.user);
   const selectedGroupId = useAppStore((s) => s.selectedGroupId);
 
@@ -55,6 +56,9 @@ export function OnboardingPage() {
     setCreating(true);
     try {
       const group = await groupsApi.create(name);
+      // Danh sách nhóm trong sidebar (caches "fresh" 30s) không tự biết
+      // nhóm mới → đánh dấu stale để refetch ngay khi vào app.
+      void queryClient.invalidateQueries({ queryKey: ["groups"] });
       pickGroup(group, navigate);
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Tạo nhóm thất bại"));
@@ -73,6 +77,7 @@ export function OnboardingPage() {
     setJoining(true);
     try {
       const group = await groupsApi.join(code);
+      void queryClient.invalidateQueries({ queryKey: ["groups"] });
       pickGroup(group, navigate);
     } catch (err) {
       toast.error(
