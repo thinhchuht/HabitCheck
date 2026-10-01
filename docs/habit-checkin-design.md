@@ -505,15 +505,15 @@ Base: `/api`, auth Bearer JWT, lỗi trả `ProblemDetails` (RFC 7807). OpenAPI 
 
 ### Groups
 
-| Method | Path                            | Mô tả                                                                                                                                               |
-| ------ | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| POST   | `/groups`                       | Tạo nhóm                                                                                                                                            |
-| POST   | `/groups/join`                  | `{inviteCode}`                                                                                                                                      |
-| GET    | `/groups/mine`                  | Danh sách nhóm tôi tham gia, mỗi nhóm kèm `myChallenge` (kỳ chưa huỷ gần nhất của tôi trong nhóm) — dùng để tự chọn nhóm chưa hết hạn khi đăng nhập |
-| GET    | `/groups/{id}`                  | Chi tiết + thành viên                                                                                                                               |
-| PATCH  | `/groups/{id}/penalty-tiers`    | Owner cập nhật bậc phạt                                                                                                                             |
-| GET    | `/groups/{id}/live`             | Snapshot bảng realtime hôm nay                                                                                                                      |
-| DELETE | `/groups/{id}/members/{userId}` | Owner xoá thành viên                                                                                                                                |
+| Method | Path                            | Mô tả                                                                                                                                                                                                                                            |
+| ------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| POST   | `/groups`                       | Tạo nhóm                                                                                                                                                                                                                                         |
+| POST   | `/groups/join`                  | `{inviteCode}`                                                                                                                                                                                                                                   |
+| GET    | `/groups/mine`                  | Danh sách nhóm tôi tham gia, mỗi nhóm kèm `myChallenge` (kỳ chưa huỷ gần nhất của tôi trong nhóm) — dùng để tự chọn nhóm chưa hết hạn khi đăng nhập. Thành viên + kỳ của **mọi** nhóm tải theo batch (số query cố định, không tăng theo số nhóm) |
+| GET    | `/groups/{id}`                  | Chi tiết + thành viên                                                                                                                                                                                                                            |
+| PATCH  | `/groups/{id}/penalty-tiers`    | Owner cập nhật bậc phạt                                                                                                                                                                                                                          |
+| GET    | `/groups/{id}/live`             | Snapshot bảng realtime hôm nay                                                                                                                                                                                                                   |
+| DELETE | `/groups/{id}/members/{userId}` | Owner xoá thành viên                                                                                                                                                                                                                             |
 
 ### Challenges & Activities
 
@@ -619,7 +619,7 @@ Server đẩy về group:
 
 ### 7.1 Đăng nhập
 
-- Nút "Đăng nhập bằng Google". Sau đăng nhập tự vào **nhóm đầu tiên chưa hết hạn** (kỳ `myChallenge` của tôi trong nhóm có `end_date >= hôm nay`, hoặc nhóm chưa có kỳ) — không cần chọn nhóm thủ công. Chỉ chuyển sang onboarding (tạo nhóm / nhập mã mời) khi không còn nhóm nào chưa hết hạn.
+- Nút "Đăng nhập bằng Google". Sau đăng nhập tự vào **nhóm đầu tiên chưa hết hạn** (kỳ `myChallenge` của tôi trong nhóm có `end_date >= hôm nay`, hoặc nhóm chưa có kỳ) — không cần chọn nhóm thủ công. Chỉ chuyển sang onboarding (tạo nhóm / nhập mã mời) khi không còn nhóm nào chưa hết hạn. Nếu tải danh sách nhóm lỗi (API/mạng) cũng vào onboarding — trang đó tự tải lại và có nút "Thử lại" (không báo nhầm "sai tài khoản/mật khẩu").
 
 ### 7.2 Hôm nay (trang chủ)
 

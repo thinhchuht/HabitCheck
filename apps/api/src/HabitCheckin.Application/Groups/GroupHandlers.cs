@@ -131,17 +131,43 @@ public sealed class GetMyGroupsHandler(IAppDbContext db, ICurrentUser user)
             .Where(m => m.UserId == user.Id)
             .OrderBy(m => m.JoinedAt)
             .ToListAsync(ct);
+        if (memberships.Count == 0) return [];
 
+        var groupIds = memberships.Select(m => m.GroupId).ToList();
         var groups = await db.Groups.AsNoTracking()
-            .Where(g => memberships.Select(m => m.GroupId).Contains(g.Id))
+            .Where(g => groupIds.Contains(g.Id))
             .ToListAsync(ct);
         var byId = groups.ToDictionary(g => g.Id);
 
-        var result = new List<GroupDto>();
+        // Batch thành 3 query cho MỌI nhóm (thay vì 3 query/nhóm kiểu N+1) —
+        // endpoint này chạy khi đăng nhập + polling sidebar, chậm gấp N lần là lãng phí.
+        var allMembers = await db.GroupMembers.AsNoTracking()
+            .Where(m => groupIds.Contains(m.GroupId))
+            .OrderBy(m => m.JoinedAt)
+            .ToListAsync(ct);
+        var userIds = allMembers.Select(m => m.UserId).Distinct().ToList();
+        var users = await db.Users.AsNoTracking()
+            .Where(u => userIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, ct);
+        var myChallenges = await db.Challenges.AsNoTracking()
+            .Where(c => groupIds.Contains(c.GroupId) && c.UserId == user.Id && c.Status != ChallengeStatus.Cancelled)
+            .ToListAsync(ct);
+        var myLatest = myChallenges
+            .GroupBy(c => c.GroupId)
+            .ToDictionary(x => x.Key, x => x.OrderByDescending(c => c.EndDate).First());
+
+        var result = new List<GroupDto>(byId.Count);
         foreach (var m in memberships)
         {
             if (!byId.TryGetValue(m.GroupId, out var g)) continue;
-            result.Add(await GroupDtoHelper.ToDtoAsync(db, g, user.Id, ct));
+            var members = allMembers.Where(x => x.GroupId == g.Id).ToList();
+            var dto = g.ToDto(members.Select(x => (x, users[x.UserId])).ToList());
+            result.Add(dto with
+            {
+                MyChallenge = myLatest.TryGetValue(g.Id, out var c)
+                    ? new MyChallengeInfoDto(c.Status.ToString().ToUpperInvariant(), Fmt.Date(c.EndDate))
+                    : null
+            });
         }
         return result;
     }

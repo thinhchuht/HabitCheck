@@ -62,6 +62,7 @@ export function useLiveEvents(): void {
           ["today"],
           ["proofs"],
           ["groups", "mine-pending"],
+          ["groups", "pending-counts"],
         ]);
         if (p.userId !== userId) {
           toast.success(
@@ -71,11 +72,21 @@ export function useLiveEvents(): void {
       }),
 
       onRealtimeEvent<CheckOutCompletedEvent>("CheckOutCompleted", () => {
-        invalidate([["live", groupId], ["today"], ["groups", "mine-pending"]]);
+        invalidate([
+          ["live", groupId],
+          ["today"],
+          ["groups", "mine-pending"],
+          ["groups", "pending-counts"],
+        ]);
       }),
 
       onRealtimeEvent<SessionStartedEvent>("SessionStarted", () => {
-        invalidate([["live", groupId], ["today"], ["groups", "mine-pending"]]);
+        invalidate([
+          ["live", groupId],
+          ["today"],
+          ["groups", "mine-pending"],
+          ["groups", "pending-counts"],
+        ]);
       }),
 
       onRealtimeEvent<ProofRejectedEvent>("ProofRejected", (p) => {

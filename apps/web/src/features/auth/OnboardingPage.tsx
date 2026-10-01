@@ -1,10 +1,17 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, KeyRound, Users, UsersRound } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  KeyRound,
+  Users,
+  UsersRound,
+} from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/api/client";
 import { groupsApi } from "@/api/groups";
+import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,7 +43,13 @@ export function OnboardingPage() {
   const me = useAuthStore((s) => s.user);
   const selectedGroupId = useAppStore((s) => s.selectedGroupId);
 
-  const { data: myGroups, isLoading: loadingGroups } = useQuery({
+  const {
+    data: myGroups,
+    isLoading: loadingGroups,
+    isError: groupsFailed,
+    error: groupsError,
+    refetch: refetchGroups,
+  } = useQuery({
     queryKey: ["groups", "mine"],
     queryFn: () => groupsApi.mine(),
   });
@@ -100,7 +113,7 @@ export function OnboardingPage() {
           subtitle="Tạo nhóm mới, nhập mã mời, hoặc chọn lại nhóm đã tham gia. Có thể tham gia nhiều nhóm — nhóm cũ giữ nguyên, không cần xoá."
         />
         <div className="space-y-6">
-          {loadingGroups || (myGroups ?? []).length > 0 ? (
+          {loadingGroups || groupsFailed || (myGroups ?? []).length > 0 ? (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -118,6 +131,20 @@ export function OnboardingPage() {
                     <Skeleton className="h-12 w-full" />
                     <Skeleton className="h-12 w-full" />
                   </div>
+                ) : groupsFailed ? (
+                  <EmptyState
+                    icon={<AlertTriangle className="h-7 w-7" />}
+                    title="Không tải được danh sách nhóm"
+                    description={getApiErrorMessage(groupsError)}
+                    action={
+                      <Button
+                        variant="outline"
+                        onClick={() => void refetchGroups()}
+                      >
+                        Thử lại
+                      </Button>
+                    }
+                  />
                 ) : (
                   <ul className="divide-y divide-slate-100">
                     {(myGroups ?? []).map((g) => {

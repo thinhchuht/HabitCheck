@@ -38,7 +38,13 @@ export function LoginPage() {
       navigate("/admin", { replace: true });
       return;
     }
-    const groups = await groupsApi.mine();
+    const groups = await groupsApi.mine().catch(() => null);
+    // Token đã hợp lệ nhưng tải danh sách nhóm thất bại (API lỗi/mạng) —
+    // không chặn người dùng ở màn hình login: onboarding tự tải lại + có nút thử lại.
+    if (groups === null) {
+      navigate("/onboarding", { replace: true });
+      return;
+    }
     const firstActive = groups.find((g) => !isGroupExpired(g));
     if (firstActive) {
       useAppStore.getState().setSelectedGroupId(firstActive.id);
@@ -73,7 +79,10 @@ export function LoginPage() {
       await afterLogin();
     } catch (err) {
       toast.error(
-        getApiErrorMessage(err, "Tài khoản hoặc mật khẩu không đúng."),
+        getApiErrorMessage(
+          err,
+          "Đăng nhập thất bại. Kiểm tra thông tin đăng nhập hoặc kết nối mạng.",
+        ),
       );
     } finally {
       setBusy(false);
