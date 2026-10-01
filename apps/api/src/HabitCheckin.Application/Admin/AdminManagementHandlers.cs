@@ -216,7 +216,7 @@ public sealed record AdminActivityDto(
 
 public sealed record AdminActivityListDto(int Total, List<AdminActivityDto> Activities);
 
-public sealed record AdminActivitiesQuery(string? Search, string? Type, int Page, int PageSize)
+public sealed record AdminActivitiesQuery(string? Search, string? Type, int Page, int PageSize, Guid? ChallengeId = null)
     : IRequest<AdminActivityListDto>;
 
 public sealed class AdminActivitiesHandler(IAppDbContext db)
@@ -228,12 +228,14 @@ public sealed class AdminActivitiesHandler(IAppDbContext db)
         var pageSize = Math.Clamp(request.PageSize, 1, 100);
         var s = request.Search?.Trim().ToLowerInvariant();
         ActivityType? type = Enum.TryParse<ActivityType>(request.Type, ignoreCase: true, out var t) ? t : null;
+        Guid? challengeId = request.ChallengeId;
 
         var q = from a in db.Activities.AsNoTracking()
                 join c in db.Challenges.AsNoTracking() on a.ChallengeId equals c.Id
                 join g in db.Groups.AsNoTracking() on c.GroupId equals g.Id
                 join o in db.Users.AsNoTracking() on c.UserId equals o.Id
                 where (type == null || a.Type == type)
+                where challengeId == null || a.ChallengeId == challengeId
                 where string.IsNullOrEmpty(s) || a.Name.ToLower().Contains(s) || c.Title.ToLower().Contains(s)
                 select new { a, c, g, o };
 
@@ -256,6 +258,59 @@ public sealed class AdminActivitiesHandler(IAppDbContext db)
             .ToList();
 
         return new AdminActivityListDto(total, activities);
+    }
+}
+
+// ---------- Tất cả kỳ thử thách (mọi nhóm) ----------
+
+public sealed record AdminChallengeDto(
+    string Id, string Title, string Status, string StartDate, string EndDate,
+    string GroupName, string OwnerName, int ActivityCount, int CheckinCount);
+
+public sealed record AdminChallengeListDto(int Total, List<AdminChallengeDto> Challenges);
+
+public sealed record AdminChallengesQuery(string? Search, string? Status, int Page, int PageSize)
+    : IRequest<AdminChallengeListDto>;
+
+public sealed class AdminChallengesHandler(IAppDbContext db)
+    : IRequestHandler<AdminChallengesQuery, AdminChallengeListDto>
+{
+    public async Task<AdminChallengeListDto> Handle(AdminChallengesQuery request, CancellationToken ct)
+    {
+        var page = Math.Max(1, request.Page);
+        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var s = request.Search?.Trim().ToLowerInvariant();
+        ChallengeStatus? status = Enum.TryParse<ChallengeStatus>(request.Status, ignoreCase: true, out var st) ? st : null;
+
+        var q = from c in db.Challenges.AsNoTracking()
+                join g in db.Groups.AsNoTracking() on c.GroupId equals g.Id
+                join o in db.Users.AsNoTracking() on c.UserId equals o.Id
+                where (status == null || c.Status == status)
+                where string.IsNullOrEmpty(s)
+                    || c.Title.ToLower().Contains(s)
+                    || g.Name.ToLower().Contains(s)
+                    || o.DisplayName.ToLower().Contains(s)
+                select new { c, g, o };
+
+        var total = await q.CountAsync(ct);
+        var rows = await q
+            .OrderByDescending(x => x.c.StartDate)
+            .ThenBy(x => x.c.Title)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        // Enum trả chuỗi HOA — khớp UpperEnumNamingPolicy của JSON toàn API.
+        var challenges = rows.Select(x => new AdminChallengeDto(
+            x.c.Id.ToString(), x.c.Title,
+            x.c.Status.ToString().ToUpperInvariant(),
+            Fmt.Date(x.c.StartDate), Fmt.Date(x.c.EndDate),
+            x.g.Name, x.o.DisplayName,
+            db.Activities.Count(a => a.ChallengeId == x.c.Id),
+            db.CheckIns.Count(ci => db.Activities.Any(a => a.Id == ci.ActivityId && a.ChallengeId == x.c.Id))))
+            .ToList();
+
+        return new AdminChallengeListDto(total, challenges);
     }
 }
 

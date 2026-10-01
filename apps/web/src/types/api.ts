@@ -613,6 +613,23 @@ export interface AdminActivityList {
   activities: AdminActivity[];
 }
 
+export interface AdminChallenge {
+  id: string;
+  title: string;
+  status: ChallengeStatus;
+  startDate: string;
+  endDate: string;
+  groupName: string;
+  ownerName: string;
+  activityCount: number;
+  checkinCount: number;
+}
+
+export interface AdminChallengeList {
+  total: number;
+  challenges: AdminChallenge[];
+}
+
 export interface AdminGroupFund {
   groupId: string;
   name: string;

@@ -400,6 +400,127 @@ public class AdminManagementHandlersTests
         byNone.Total.Should().Be(0);
     }
 
+    [Fact]
+    public async Task Activities_FiltersByChallengeId()
+    {
+        var (db, _, member, _, group, challenge, deadline, _) = await NewContextAsync();
+        var second = await AddChallengeAsync(db, group, member, "Kỳ phụ",
+            new DateOnly(2025, 2, 1), new DateOnly(2025, 2, 14), ChallengeStatus.Draft);
+        var other = new Activity
+        {
+            ChallengeId = second.Id,
+            Name = "Chạy bộ",
+            Type = ActivityType.Deadline,
+            DeadlineTime = new TimeOnly(6, 0),
+            SortOrder = 0
+        };
+        db.Activities.Add(other);
+        await db.SaveChangesAsync();
+        var handler = new AdminActivitiesHandler(db);
+
+        var scoped = await handler.Handle(new AdminActivitiesQuery(null, null, 1, 20, second.Id), default);
+        scoped.Total.Should().Be(1);
+        scoped.Activities[0].Id.Should().Be(other.Id.ToString());
+
+        var firstOnly = await handler.Handle(new AdminActivitiesQuery(null, null, 1, 20, challenge.Id), default);
+        firstOnly.Total.Should().Be(2);
+        firstOnly.Activities.Should().OnlyContain(a => a.ChallengeTitle == "Kỳ tháng 1");
+        firstOnly.Activities.Should().Contain(a => a.Id == deadline.Id.ToString());
+    }
+
+    // ---------- Kỳ thử thách (mọi nhóm) ----------
+
+    private static async Task<Challenge> AddChallengeAsync(
+        AppDbContext db, Group group, User owner, string title,
+        DateOnly start, DateOnly end, ChallengeStatus status)
+    {
+        var c = new Challenge
+        {
+            GroupId = group.Id,
+            UserId = owner.Id,
+            Title = title,
+            StartDate = start,
+            EndDate = end,
+            Status = status,
+            LockedAt = status == ChallengeStatus.Active ? Now : null,
+            CreatedAt = Now
+        };
+        db.Challenges.Add(c);
+        await db.SaveChangesAsync();
+        return c;
+    }
+
+    [Fact]
+    public async Task Challenges_ReturnsAllWithJoinsAndCounts()
+    {
+        var (db, _, member, _, group, challenge, _, _) = await NewContextAsync();
+        var second = await AddChallengeAsync(db, group, member, "Kỳ phụ",
+            new DateOnly(2025, 2, 1), new DateOnly(2025, 2, 14), ChallengeStatus.Draft);
+        db.Activities.Add(new Activity
+        {
+            ChallengeId = second.Id,
+            Name = "Chạy bộ",
+            Type = ActivityType.Deadline,
+            DeadlineTime = new TimeOnly(6, 0),
+            SortOrder = 0
+        });
+        await db.SaveChangesAsync();
+        var handler = new AdminChallengesHandler(db);
+
+        var result = await handler.Handle(new AdminChallengesQuery(null, null, 1, 20), default);
+
+        result.Total.Should().Be(2);
+        // Sắp startDate giảm: kỳ phụ (2025-02-01) trước, kỳ tháng 1 (2025-01-08) sau.
+        result.Challenges[0].Id.Should().Be(second.Id.ToString());
+        result.Challenges[1].Id.Should().Be(challenge.Id.ToString());
+
+        var row = result.Challenges.Single(c => c.Id == challenge.Id.ToString());
+        row.Title.Should().Be("Kỳ tháng 1");
+        row.Status.Should().Be("ACTIVE");
+        row.StartDate.Should().Be("2025-01-08");
+        row.EndDate.Should().Be("2025-01-21");
+        row.GroupName.Should().Be("Team A");
+        row.OwnerName.Should().Be("Admin Owner");
+        row.ActivityCount.Should().Be(2);
+        row.CheckinCount.Should().Be(1);
+
+        var draft = result.Challenges.Single(c => c.Id == second.Id.ToString());
+        draft.Status.Should().Be("DRAFT");
+        draft.OwnerName.Should().Be("Thành viên");
+        draft.ActivityCount.Should().Be(1);
+        draft.CheckinCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Challenges_FiltersByStatusAndSearch()
+    {
+        var (db, _, member, _, group, _, _, _) = await NewContextAsync();
+        await AddChallengeAsync(db, group, member, "Kỳ phụ",
+            new DateOnly(2025, 2, 1), new DateOnly(2025, 2, 14), ChallengeStatus.Draft);
+        var handler = new AdminChallengesHandler(db);
+
+        var active = await handler.Handle(new AdminChallengesQuery(null, "active", 1, 20), default);
+        active.Total.Should().Be(1);
+        active.Challenges[0].Title.Should().Be("Kỳ tháng 1");
+
+        var draft = await handler.Handle(new AdminChallengesQuery(null, "DRAFT", 1, 20), default);
+        draft.Total.Should().Be(1);
+        draft.Challenges[0].Title.Should().Be("Kỳ phụ");
+
+        var byTitle = await handler.Handle(new AdminChallengesQuery("kỳ phụ", null, 1, 20), default);
+        byTitle.Total.Should().Be(1);
+
+        var byOwner = await handler.Handle(new AdminChallengesQuery("thành viên", null, 1, 20), default);
+        byOwner.Total.Should().Be(1);
+        byOwner.Challenges[0].Title.Should().Be("Kỳ phụ");
+
+        var byGroup = await handler.Handle(new AdminChallengesQuery("team a", null, 1, 20), default);
+        byGroup.Total.Should().Be(2);
+
+        var byNone = await handler.Handle(new AdminChallengesQuery("không-có", null, 1, 20), default);
+        byNone.Total.Should().Be(0);
+    }
+
     // ---------- Quỹ phạt ----------
 
     [Fact]

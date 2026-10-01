@@ -560,28 +560,29 @@ Base: `/api`, auth Bearer JWT, lỗi trả `ProblemDetails` (RFC 7807). OpenAPI 
 
 ### Admin (chỉ `role=admin`)
 
-| Method | Path                                              | Mô tả                                                                                              |
-| ------ | ------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| GET    | `/admin/stats`                                    | Tổng quan: số user/nhóm/kỳ, check-in hôm nay, phạt hôm nay/tổng, user mới nhất                     |
-| GET    | `/admin/stats/overview`                           | Xu hướng 14 ngày (check-in + phạt), xếp hạng nhóm, top 10 user nhiều phạt                          |
-| GET    | `/admin/users?search=&page=&pageSize=`            | Danh sách user (tìm theo tên/email, phân trang), kèm số ngày chốt/fail/tổng phạt, badge Admin/Chặn |
-| GET    | `/admin/users/{id}`                               | Chi tiết user + các nhóm tham gia + kỳ/hoạt động + số liệu từng kỳ                                 |
-| POST   | `/admin/users/{id}/admin`                         | Cấp quyền admin (`204`)                                                                            |
-| DELETE | `/admin/users/{id}/admin`                         | Thu hồi quyền admin (`204`) — không được tự thu hồi chính mình                                     |
-| POST   | `/admin/users/{id}/ban`                           | Chặn user: mọi request của user đó trả 403 (không tự chặn chính mình)                              |
-| DELETE | `/admin/users/{id}/ban`                           | Bỏ chặn user                                                                                       |
-| PATCH  | `/admin/users/{id}`                               | `{displayName}` — đổi tên hiển thị thay user (trim, 1–100 ký tự)                                   |
-| POST   | `/admin/users/{id}/password`                      | `{newPassword}` (8–128) — đặt lại mật khẩu; chỉ user có tài khoản `username` (`204`)               |
-| GET    | `/admin/groups`                                   | Danh sách nhóm: owner, số thành viên, số kỳ                                                        |
-| GET    | `/admin/groups/{id}`                              | Chi tiết nhóm + thành viên + kỳ/hoạt động + số liệu từng kỳ                                        |
-| GET    | `/admin/activities?search=&type=&page=&pageSize=` | Tất cả hoạt động mọi nhóm (kiểu, bằng chứng, kỳ, nhóm, chủ, số check-in)                           |
-| GET    | `/admin/fund`                                     | Quỹ toàn hệ thống: tổng phạt/đã thu/chưa thu, theo nhóm, 50 mục sổ cái gần nhất                    |
-| GET    | `/admin/jobs`                                     | Trạng thái 5 job Hangfire (cron, chạy tới, chạy gần nhất — đọc từ `hangfire.hash`)                 |
-| GET    | `/admin/audit-logs?page=&pageSize=`               | Lịch sử thao tác admin (mới nhất trước, phân trang)                                                |
-| POST   | `/admin/announce`                                 | `{message}` (1–500) — broadcast event `Announcement` tới mọi client online                         |
-| POST   | `/admin/settle?date=`                             | Chạy lại `DailySettlementJob` cho 1 ngày (PROVISIONAL) — **chỉ môi trường Development**            |
-| POST   | `/admin/finalize?date=`                           | Chạy lại `FinalizeJob` cho 1 ngày (FINAL + ghi sổ quỹ) — **chỉ Development**                       |
-| POST   | `/admin/activate`                                 | Chạy lại `ChallengeActivationJob` — **chỉ Development**                                            |
+| Method | Path                                                           | Mô tả                                                                                                                           |
+| ------ | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/admin/stats`                                                 | Tổng quan: số user/nhóm/kỳ, check-in hôm nay, phạt hôm nay/tổng, user mới nhất                                                  |
+| GET    | `/admin/stats/overview`                                        | Xu hướng 14 ngày (check-in + phạt), xếp hạng nhóm, top 10 user nhiều phạt                                                       |
+| GET    | `/admin/users?search=&page=&pageSize=`                         | Danh sách user (tìm theo tên/email, phân trang), kèm số ngày chốt/fail/tổng phạt, badge Admin/Chặn                              |
+| GET    | `/admin/users/{id}`                                            | Chi tiết user + các nhóm tham gia + kỳ/hoạt động + số liệu từng kỳ                                                              |
+| POST   | `/admin/users/{id}/admin`                                      | Cấp quyền admin (`204`)                                                                                                         |
+| DELETE | `/admin/users/{id}/admin`                                      | Thu hồi quyền admin (`204`) — không được tự thu hồi chính mình                                                                  |
+| POST   | `/admin/users/{id}/ban`                                        | Chặn user: mọi request của user đó trả 403 (không tự chặn chính mình)                                                           |
+| DELETE | `/admin/users/{id}/ban`                                        | Bỏ chặn user                                                                                                                    |
+| PATCH  | `/admin/users/{id}`                                            | `{displayName}` — đổi tên hiển thị thay user (trim, 1–100 ký tự)                                                                |
+| POST   | `/admin/users/{id}/password`                                   | `{newPassword}` (8–128) — đặt lại mật khẩu; chỉ user có tài khoản `username` (`204`)                                            |
+| GET    | `/admin/groups`                                                | Danh sách nhóm: owner, số thành viên, số kỳ                                                                                     |
+| GET    | `/admin/groups/{id}`                                           | Chi tiết nhóm + thành viên + kỳ/hoạt động + số liệu từng kỳ                                                                     |
+| GET    | `/admin/challenges?search=&status=&page=&pageSize=`            | Tất cả kỳ mọi nhóm (tên, trạng thái, khoảng ngày, nhóm, người tạo, số hoạt động + check-in); tìm theo tên kỳ / nhóm / người tạo |
+| GET    | `/admin/activities?search=&type=&challengeId=&page=&pageSize=` | Hoạt động mọi nhóm, hoặc chỉ của 1 kỳ nếu có `challengeId` (kiểu, bằng chứng, số check-in)                                      |
+| GET    | `/admin/fund`                                                  | Quỹ toàn hệ thống: tổng phạt/đã thu/chưa thu, theo nhóm, 50 mục sổ cái gần nhất                                                 |
+| GET    | `/admin/jobs`                                                  | Trạng thái 5 job Hangfire (cron, chạy tới, chạy gần nhất — đọc từ `hangfire.hash`)                                              |
+| GET    | `/admin/audit-logs?page=&pageSize=`                            | Lịch sử thao tác admin (mới nhất trước, phân trang)                                                                             |
+| POST   | `/admin/announce`                                              | `{message}` (1–500) — broadcast event `Announcement` tới mọi client online                                                      |
+| POST   | `/admin/settle?date=`                                          | Chạy lại `DailySettlementJob` cho 1 ngày (PROVISIONAL) — **chỉ môi trường Development**                                         |
+| POST   | `/admin/finalize?date=`                                        | Chạy lại `FinalizeJob` cho 1 ngày (FINAL + ghi sổ quỹ) — **chỉ Development**                                                    |
+| POST   | `/admin/activate`                                              | Chạy lại `ChallengeActivationJob` — **chỉ Development**                                                                         |
 
 Mọi endpoint admin đều ghi `admin_audit_logs` (action: `BAN/UNBAN/RENAME/SET_PASSWORD/GRANT_ADMIN/REVOKE_ADMIN/SETTLE/FINALIZE/ACTIVATE/ANNOUNCE`); mật khẩu không bao giờ nằm trong `detail`.
 
@@ -687,7 +688,7 @@ Khu admin là **bộ tab riêng** (`AdminLayout` ở `/admin`): Tổng quan · U
     Theo từng nhóm: vai trò, chủ nhóm, danh sách kỳ thử thách kèm số liệu (số ngày chốt, ngày fail, tổng phạt) — bấm mở xem hoạt động của kỳ.
 - **Nhóm** (`/admin/groups`): danh sách tất cả nhóm (owner, số thành viên, số kỳ) → chi tiết.
 - **Chi tiết nhóm** (`/admin/groups/{id}`): thành viên + vai trò, bảng phạt của nhóm, danh sách kỳ thử thách + hoạt động + số liệu.
-- **Hoạt động** (`/admin/activities`): bảng tất cả hoạt động mọi nhóm — icon + tên, kiểu (badge), loại bằng chứng, kỳ (tên + trạng thái + khoảng ngày), nhóm + chủ, số lần check-in; lọc theo từ khoá (tên hoạt động / tên kỳ) + kiểu hoạt động, phân trang.
+- **Kỳ thử thách** (`/admin/activities`): 2 cấp. Cấp 1 — bảng tất cả kỳ mọi nhóm: tên + khoảng ngày + trạng thái (badge), nhóm, **người tạo**, số hoạt động, số check-in; tìm theo tên kỳ / nhóm / người tạo, lọc theo trạng thái, phân trang. Bấm vào một kỳ → cấp 2: thẻ tóm tắt kỳ (trạng thái, ngày, người tạo, nhóm, tổng hoạt động + check-in) và bảng hoạt động do người tạo kỳ đó định nghĩa (icon + tên, kiểu, bằng chứng, số check-in), nút "Danh sách kỳ" để quay lại.
 - **Quỹ** (`/admin/fund`): 3 thẻ tổng (phạt đã chốt / đã thu / chưa thu), bảng theo nhóm (phạt, đã đóng, còn nợ), sổ cái 50 giao dịch gần nhất (loại, nhóm, user, số tiền, ghi chú, người ghi, thời gian).
 - **Thống kê** (`/admin/stats`): xu hướng 14 ngày (check-in + phạt theo ngày), xếp hạng nhóm (thành viên, ngày chốt/fail, tỷ lệ đạt, tổng phạt), top 10 user chịu phạt nhiều nhất.
 - **Vận hành** (`/admin/ops`):

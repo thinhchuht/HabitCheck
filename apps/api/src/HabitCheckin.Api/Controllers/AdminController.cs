@@ -85,14 +85,22 @@ public sealed class AdminController(
     public async Task<ActionResult<AdminGroupDetailDto>> GroupDetail(Guid id, CancellationToken ct) =>
         Ok(await sender.Send(new AdminGroupDetailQuery(id), ct));
 
-    // ---------- Hoạt động (mọi nhóm) ----------
+    // ---------- Kỳ thử thách + hoạt động (mọi nhóm) ----------
+
+    [HttpGet("challenges")]
+    public async Task<ActionResult<AdminChallengeListDto>> Challenges(
+        [FromQuery] string? search, [FromQuery] string? status,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
+        CancellationToken ct = default) =>
+        Ok(await sender.Send(new AdminChallengesQuery(search, status, page, pageSize), ct));
 
     [HttpGet("activities")]
     public async Task<ActionResult<AdminActivityListDto>> Activities(
         [FromQuery] string? search, [FromQuery] string? type,
+        [FromQuery] Guid? challengeId,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
         CancellationToken ct = default) =>
-        Ok(await sender.Send(new AdminActivitiesQuery(search, type, page, pageSize), ct));
+        Ok(await sender.Send(new AdminActivitiesQuery(search, type, page, pageSize, challengeId), ct));
 
     // ---------- Quỹ phạt toàn hệ thống ----------
 

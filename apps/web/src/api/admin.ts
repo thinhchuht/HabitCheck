@@ -2,6 +2,7 @@ import { api } from "./client";
 import type {
   AdminActivityList,
   AdminAuditLogList,
+  AdminChallengeList,
   AdminFund,
   AdminGroupDetail,
   AdminGroupList,
@@ -71,16 +72,31 @@ export const adminApi = {
     return api.get<AdminGroupDetail>(`/admin/groups/${id}`).then((r) => r.data);
   },
 
-  /** Tất cả hoạt động mọi nhóm, lọc theo tên/kỳ + kiểu hoạt động. */
+  /** Tất cả kỳ thử thách mọi nhóm, tìm theo tên kỳ / nhóm / người tạo, lọc theo trạng thái. */
+  challenges(
+    search?: string,
+    status?: string,
+    page = 1,
+    pageSize = 20,
+  ): Promise<AdminChallengeList> {
+    return api
+      .get<AdminChallengeList>("/admin/challenges", {
+        params: { search, status, page, pageSize },
+      })
+      .then((r) => r.data);
+  },
+
+  /** Hoạt động mọi nhóm (hoặc của 1 kỳ nếu truyền challengeId), lọc theo tên + kiểu. */
   activities(
     search?: string,
     type?: string,
     page = 1,
     pageSize = 20,
+    challengeId?: string,
   ): Promise<AdminActivityList> {
     return api
       .get<AdminActivityList>("/admin/activities", {
-        params: { search, type, page, pageSize },
+        params: { search, type, page, pageSize, challengeId },
       })
       .then((r) => r.data);
   },
