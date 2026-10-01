@@ -221,29 +221,40 @@ public sealed class AdminUserDetailHandler(IAppDbContext db) : IRequestHandler<A
 
 // ---------- Groups ----------
 
-public sealed record AdminGroupsQuery : IRequest<AdminGroupListDto>;
+public sealed record AdminGroupsQuery(int Page, int PageSize) : IRequest<AdminGroupListDto>;
 
 public sealed class AdminGroupsHandler(IAppDbContext db) : IRequestHandler<AdminGroupsQuery, AdminGroupListDto>
 {
     public async Task<AdminGroupListDto> Handle(AdminGroupsQuery request, CancellationToken ct)
     {
+        var page = Math.Max(1, request.Page);
+        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+
+        var total = await db.Groups.AsNoTracking().CountAsync(ct);
         var groups = await db.Groups.AsNoTracking()
             .OrderByDescending(g => g.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync(ct);
+        if (groups.Count == 0) return new AdminGroupListDto(total, []);
         var ownerIds = groups.Select(g => g.OwnerId).Distinct().ToList();
         var owners = await db.Users.AsNoTracking()
             .Where(u => ownerIds.Contains(u.Id))
             .ToDictionaryAsync(u => u.Id, ct);
-        var memberCounts = await db.GroupMembers
+        var ids = groups.Select(g => g.Id).ToList();
+        // Chỉ đếm thành viên / kỳ của các nhóm trong trang hiện tại.
+        var memberCounts = await db.GroupMembers.AsNoTracking()
+            .Where(m => ids.Contains(m.GroupId))
             .GroupBy(m => m.GroupId)
             .Select(g => new { GroupId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.GroupId, x => x.Count, ct);
-        var challengeCounts = await db.Challenges
+        var challengeCounts = await db.Challenges.AsNoTracking()
+            .Where(c => ids.Contains(c.GroupId))
             .GroupBy(c => c.GroupId)
             .Select(g => new { GroupId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.GroupId, x => x.Count, ct);
 
-        return new AdminGroupListDto(groups.Count, groups.Select(g => new AdminGroupDto(
+        return new AdminGroupListDto(total, groups.Select(g => new AdminGroupDto(
             g.Id.ToString(), g.Name, g.OwnerId.ToString(),
             owners.TryGetValue(g.OwnerId, out var o) ? o.DisplayName : "?",
             memberCounts.GetValueOrDefault(g.Id), challengeCounts.GetValueOrDefault(g.Id),

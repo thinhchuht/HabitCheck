@@ -110,11 +110,14 @@ function ChallengeDetail({
   challenge: AdminChallenge;
   onBack: () => void;
 }) {
+  const [page, setPage] = useState(1);
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ["admin", "challenge-activities", challenge.id],
+    queryKey: ["admin", "challenge-activities", challenge.id, page],
     queryFn: () =>
-      adminApi.activities(undefined, undefined, 1, 100, challenge.id),
+      adminApi.activities(undefined, undefined, page, PAGE_SIZE, challenge.id),
   });
+
+  const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
 
   return (
     <div>
@@ -180,7 +183,35 @@ function ChallengeDetail({
             description="Người tạo kỳ chưa định nghĩa hoạt động nào."
           />
         ) : data ? (
-          <ActivitiesTable activities={data.activities} />
+          <>
+            <ActivitiesTable activities={data.activities} />
+
+            {totalPages > 1 ? (
+              <div className="mt-3 flex items-center justify-between">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Trước
+                </Button>
+                <p className="text-sm text-slate-500">
+                  Trang {page} / {totalPages}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Sau
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : null}
+          </>
         ) : null}
       </div>
     </div>

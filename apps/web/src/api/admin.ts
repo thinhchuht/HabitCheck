@@ -64,8 +64,10 @@ export const adminApi = {
       .then((r) => r.data);
   },
 
-  groups(): Promise<AdminGroupList> {
-    return api.get<AdminGroupList>("/admin/groups").then((r) => r.data);
+  groups(page = 1, pageSize = 20): Promise<AdminGroupList> {
+    return api
+      .get<AdminGroupList>("/admin/groups", { params: { page, pageSize } })
+      .then((r) => r.data);
   },
 
   group(id: string): Promise<AdminGroupDetail> {

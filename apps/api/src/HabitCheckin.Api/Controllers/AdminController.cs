@@ -78,8 +78,10 @@ public sealed class AdminController(
     // ---------- Groups ----------
 
     [HttpGet("groups")]
-    public async Task<ActionResult<AdminGroupListDto>> Groups(CancellationToken ct) =>
-        Ok(await sender.Send(new AdminGroupsQuery(), ct));
+    public async Task<ActionResult<AdminGroupListDto>> Groups(
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
+        CancellationToken ct = default) =>
+        Ok(await sender.Send(new AdminGroupsQuery(page, pageSize), ct));
 
     [HttpGet("groups/{id:guid}")]
     public async Task<ActionResult<AdminGroupDetailDto>> GroupDetail(Guid id, CancellationToken ct) =>

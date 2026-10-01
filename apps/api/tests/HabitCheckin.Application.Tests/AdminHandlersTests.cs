@@ -239,7 +239,7 @@ public class AdminHandlersTests
         var (db, _, _, group, _) = await NewContextAsync();
         var handler = new AdminGroupsHandler(db);
 
-        var result = await handler.Handle(new AdminGroupsQuery(), default);
+        var result = await handler.Handle(new AdminGroupsQuery(1, 20), default);
 
         result.Total.Should().Be(1);
         result.Groups[0].Id.Should().Be(group.Id.ToString());
@@ -247,6 +247,30 @@ public class AdminHandlersTests
         result.Groups[0].OwnerName.Should().Be("Chủ nhóm");
         result.Groups[0].MemberCount.Should().Be(2);
         result.Groups[0].ChallengeCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Groups_PaginatesWithoutDuplicatesOrGaps()
+    {
+        var (db, owner, _, _, _) = await NewContextAsync();
+        var create = new CreateGroupHandler(db, new FakeUser(owner.Id), new FakeClock(Now));
+        await create.Handle(new CreateGroupCommand("Nhóm 2"), default);
+        await create.Handle(new CreateGroupCommand("Nhóm 3"), default);
+
+        var handler = new AdminGroupsHandler(db);
+        var page1 = await handler.Handle(new AdminGroupsQuery(1, 2), default);
+        var page2 = await handler.Handle(new AdminGroupsQuery(2, 2), default);
+        var page3 = await handler.Handle(new AdminGroupsQuery(3, 2), default);
+
+        page1.Total.Should().Be(3);
+        page2.Total.Should().Be(3);
+        page1.Groups.Should().HaveCount(2);
+        page2.Groups.Should().HaveCount(1);
+        page3.Groups.Should().BeEmpty();
+
+        var allIds = page1.Groups.Select(g => g.Id).Concat(page2.Groups.Select(g => g.Id));
+        allIds.Should().HaveCount(3);
+        allIds.Distinct().Count().Should().Be(3);
     }
 
     [Fact]
