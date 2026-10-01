@@ -27,11 +27,11 @@
 
 ### 1.2 Kiểu thời gian của hoạt động
 
-| Kiểu                             | Ý nghĩa                                                                          | Tham số                                                            | Điều kiện PASS                                                         |
-| -------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| `DEADLINE` (mốc giờ)             | Phải check-in đúng một giờ nhất định. VD: Dậy sớm trước 06:00                    | `deadline_time` (HH:mm) — chỉ nhận **±5 phút** quanh mốc (cố định) | Có check-in trong khoảng `[deadline_time − 5, deadline_time + 5]` phút |
-| `DURATION` (thời lượng)          | Hoạt động kéo dài một số phút, tick + chụp 1 ảnh khi làm xong. VD: Thể dục 1 giờ | `target_minutes` (thời lượng mô tả, VD 60 = 1 giờ)                 | Có ≥ 1 check-in hợp lệ trong ngày (tick + bằng chứng)                  |
-| `WINDOW` (khung giờ) _(mở rộng)_ | Phải check-in trong khung giờ. VD: Uống nước 12:00–13:00                         | `window_start`, `window_end`                                       | Có check-in trong khung                                                |
+| Kiểu                    | Ý nghĩa                                                                          | Tham số                                                            | Điều kiện PASS                                                         |
+| ----------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| `DEADLINE` (mốc giờ)    | Phải check-in đúng một giờ nhất định. VD: Dậy sớm trước 06:00                    | `deadline_time` (HH:mm) — chỉ nhận **±5 phút** quanh mốc (cố định) | Có check-in trong khoảng `[deadline_time − 5, deadline_time + 5]` phút |
+| `DURATION` (thời lượng) | Hoạt động kéo dài một số phút, tick + chụp 1 ảnh khi làm xong. VD: Thể dục 1 giờ | `target_minutes` (thời lượng mô tả, VD 60 = 1 giờ)                 | Có ≥ 1 check-in hợp lệ trong ngày (tick + bằng chứng)                  |
+| `WINDOW` (khung giờ)    | Phải check-in trong khung giờ. VD: Uống nước 12:00–13:00                         | `window_start`, `window_end`                                       | Có check-in trong khung                                                |
 
 ### 1.3 Bằng chứng (proof)
 
@@ -172,24 +172,26 @@ apps/api/
 │   ├── HabitCheckin.Domain/            # Entity, Value Object, enum, rule thuần
 │   │   ├── Entities/ (User, Group, GroupMember, Challenge, Activity, CheckIn,
 │   │   │             MediaAsset, DailyResult, ActivityDayResult, ProofReview,
-│   │   │             PenaltyLedgerEntry, UploadIntent)
+│   │   │             PenaltyLedgerEntry, UploadIntent, CheatDay, AdminAuditLog)
 │   │   ├── Enums/    (ActivityType, ProofType, ChallengeStatus, CheckInStatus, ...)
 │   │   └── Services/ (PenaltyCalculator, ActivityEvaluator)   # không phụ thuộc hạ tầng
 │   ├── HabitCheckin.Application/       # Use case (CQRS với MediatR), DTO, validator
 │   │   ├── Abstractions/ (IAppDbContext, IClock, IMediaStorage, IRealtimeNotifier, ICurrentUser)
-│   │   ├── Auth/         (GoogleLoginCommand, RefreshTokenCommand)
-│   │   ├── Groups/       (CreateGroup, JoinGroup, GetGroupLiveBoard, UpdatePenaltyTiers)
+│   │   ├── Auth/         (GoogleLogin, PasswordLogin, RefreshToken, Me/Profile)
+│   │   ├── Groups/       (CreateGroup, JoinGroup, GetMyGroups, GetGroupLiveBoard, UpdatePenaltyTiers)
 │   │   ├── Challenges/   (CreateChallenge, UpdateChallenge, AddActivity, ...)
 │   │   ├── CheckIns/     (CreateUploadIntent, CheckIn, CheckOut, GetToday)
-│   │   ├── Reviews/      (ReportProof, RejectProof, ApproveProof)
+│   │   ├── CheatDays/    (MarkCheatDay, CancelCheatDay)
+│   │   ├── Reviews/      (ReportProof, RejectProof, ApproveProof — giữ trong code, UI không dùng)
 │   │   ├── Stats/        (GetUserStats, GetGroupLeaderboard, GetCalendarHeatmap)
-│   │   ├── Settlement/   (SettleDayCommand, FinalizeDayCommand)
-│   │   └── Profile/      (UpdateProfile, UpdateAvatar)
+│   │   ├── Fund/         (GetGroupFund, RecordPayment)
+│   │   ├── Admin/        (AdminStats, AdminUsers, AdminGroups, AdminFund, SetUserAdmin, ...)
+│   │   └── Services/     (ISettlementService/DaySettlementService, LiveStateHelper)
 │   ├── HabitCheckin.Infrastructure/    # EF Core, Cloudinary, Google, Hangfire, JWT
 │   │   ├── Persistence/  (AppDbContext, Configurations/, Migrations/, Interceptors/)
 │   │   ├── Media/        (CloudinaryMediaStorage)
-│   │   ├── Auth/         (GoogleTokenValidator, JwtTokenService)
-│   │   ├── Jobs/         (DailySettlementJob, FinalizeJob, ReminderJob, ChallengeActivationJob)
+│   │   ├── Auth/         (GoogleTokenValidator, JwtTokenService, PasswordHasher)
+│   │   ├── Jobs/         (Jobs.cs: 5 job Hangfire + HangfireJobStatusProvider)
 │   │   └── Time/         (VietnamClock : IClock)
 │   └── HabitCheckin.Api/               # Controller mỏng, SignalR Hub, middleware
 │       ├── Controllers/
@@ -254,6 +256,8 @@ erDiagram
     daily_results ||--o| penalty_ledger : charges
     users ||--o{ upload_intents : requests
     users ||--o{ refresh_tokens : has
+    users ||--o{ cheat_days : "đánh dấu (1/tuần)"
+    users ||--o{ admin_audit_logs : "ghi thao tác admin"
 ```
 
 ### 4.2 Bảng
@@ -967,7 +971,7 @@ Migration: API tự chạy `db.Database.MigrateAsync()` khi khởi động (môi
 | **MVP 1**   | Google login, nhóm + mã mời, challenge + hoạt động (DEADLINE, DURATION), khoá theo ngày bắt đầu, check-in/out có ảnh/video, trang Hôm nay, job chốt ngày, tính phạt |
 | **MVP 2**   | Live board SignalR, trang bằng chứng check-in (không cần duyệt), đổi avatar, quỹ phạt                                                                               |
 | **MVP 3**   | Thống kê + heatmap + leaderboard, nhắc nhở Web Push, PWA (cài lên điện thoại)                                                                                       |
-| **Mở rộng** | Kiểu WINDOW, VietQR đóng quỹ, xuất báo cáo Excel, đa nhóm, huy hiệu thành tích                                                                                      |
+| **Mở rộng** | VietQR đóng quỹ, xuất báo cáo Excel, huy hiệu thành tích, ngày nghỉ phép (miễn phạt)                                                                                |
 
 ---
 
