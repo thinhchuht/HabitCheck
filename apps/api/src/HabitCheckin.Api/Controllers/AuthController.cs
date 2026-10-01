@@ -4,6 +4,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HabitCheckin.Api.Controllers;
 
@@ -19,6 +20,16 @@ public sealed class AuthController(ISender sender, IWebHostEnvironment env) : Co
     public async Task<ActionResult<AuthResponse>> Google([FromBody] GoogleLoginRequest request, CancellationToken ct)
     {
         var result = await sender.Send(new GoogleLoginCommand(request.IdToken), ct);
+        SetRefreshCookie(result.RefreshTokenValue);
+        return Ok(new AuthResponse(result.User, result.AccessToken, result.AccessExpiresIn));
+    }
+
+    [HttpPost("password")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth-ip")]
+    public async Task<ActionResult<AuthResponse>> Password([FromBody] PasswordLoginRequest request, CancellationToken ct)
+    {
+        var result = await sender.Send(new PasswordLoginCommand(request.Username, request.Password), ct);
         SetRefreshCookie(result.RefreshTokenValue);
         return Ok(new AuthResponse(result.User, result.AccessToken, result.AccessExpiresIn));
     }
@@ -56,4 +67,5 @@ public sealed class AuthController(ISender sender, IWebHostEnvironment env) : Co
 }
 
 public sealed record GoogleLoginRequest(string IdToken);
+public sealed record PasswordLoginRequest(string Username, string Password);
 public sealed record AuthResponse(UserDto User, string AccessToken, int AccessExpiresIn);

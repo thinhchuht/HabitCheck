@@ -21,6 +21,9 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
         b.Property(x => x.DisplayName).HasMaxLength(100).IsRequired();
         b.Property(x => x.AvatarPublicId).HasMaxLength(512);
         b.Property(x => x.AvatarUrl).HasMaxLength(1024);
+        b.Property(x => x.Username).HasMaxLength(64);
+        b.HasIndex(x => x.Username).IsUnique();
+        b.Property(x => x.PasswordHash).HasMaxLength(512);
     }
 }
 

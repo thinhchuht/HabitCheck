@@ -1,13 +1,16 @@
 import { GoogleLogin } from "@react-oauth/google";
 import { Flame } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { authApi } from "@/api/auth";
 import { getApiErrorMessage } from "@/api/client";
 import { groupsApi } from "@/api/groups";
 import { meApi } from "@/api/me";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { GOOGLE_CLIENT_ID } from "@/lib/constants";
 import { useAppStore } from "@/store/app";
 import { useAuthStore } from "@/store/auth";
@@ -17,34 +20,61 @@ export function LoginPage() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const [busy, setBusy] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
   // Already logged in (persisted session) → straight back in.
   useEffect(() => {
     if (accessToken && user) navigate("/today", { replace: true });
   }, [accessToken, user, navigate]);
 
+  /** Chạy sau khi có access token (cả 2 luồng Google / password). */
+  async function afterLogin() {
+    const me = await meApi.get();
+    useAuthStore.getState().setUser(me);
+    if (me.isAdmin) {
+      navigate("/admin", { replace: true });
+      return;
+    }
+    const storedGroupId = useAppStore.getState().selectedGroupId;
+    if (storedGroupId) {
+      try {
+        await groupsApi.get(storedGroupId);
+        navigate("/today", { replace: true });
+        return;
+      } catch {
+        useAppStore.getState().setSelectedGroupId(null);
+      }
+    }
+    navigate("/onboarding", { replace: true });
+  }
+
   async function handleCredential(credential: string) {
     setBusy(true);
     try {
       const res = await authApi.google(credential);
       useAuthStore.getState().setAccessToken(res.accessToken);
-      const me = await meApi.get();
-      useAuthStore.getState().setUser(me);
-
-      const storedGroupId = useAppStore.getState().selectedGroupId;
-      if (storedGroupId) {
-        try {
-          await groupsApi.get(storedGroupId);
-          navigate("/today", { replace: true });
-          return;
-        } catch {
-          useAppStore.getState().setSelectedGroupId(null);
-        }
-      }
-      navigate("/onboarding", { replace: true });
+      await afterLogin();
     } catch (err) {
       toast.error(
         getApiErrorMessage(err, "Đăng nhập thất bại. Vui lòng thử lại."),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handlePassword(e: FormEvent) {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await authApi.password(username.trim(), password);
+      useAuthStore.getState().setAccessToken(res.accessToken);
+      await afterLogin();
+    } catch (err) {
+      toast.error(
+        getApiErrorMessage(err, "Tài khoản hoặc mật khẩu không đúng."),
       );
     } finally {
       setBusy(false);
@@ -82,19 +112,61 @@ export function LoginPage() {
             {busy ? (
               <p className="py-4 text-sm text-slate-500">Đang đăng nhập…</p>
             ) : (
-              <GoogleLogin
-                locale="vi"
-                theme="outline"
-                size="large"
-                shape="pill"
-                width="100%"
-                onSuccess={(res) => {
-                  if (res.credential) void handleCredential(res.credential);
-                }}
-                onError={() =>
-                  toast.error("Google Sign-in bị lỗi. Vui lòng thử lại.")
-                }
-              />
+              <>
+                <GoogleLogin
+                  locale="vi"
+                  theme="outline"
+                  size="large"
+                  shape="pill"
+                  width="100%"
+                  onSuccess={(res) => {
+                    if (res.credential) void handleCredential(res.credential);
+                  }}
+                  onError={() =>
+                    toast.error("Google Sign-in bị lỗi. Vui lòng thử lại.")
+                  }
+                />
+                <div className="flex w-full items-center gap-3">
+                  <div className="h-px flex-1 bg-slate-200" />
+                  <span className="text-xs text-slate-400">hoặc</span>
+                  <div className="h-px flex-1 bg-slate-200" />
+                </div>
+                <form onSubmit={handlePassword} className="w-full space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="login-username" className="sr-only">
+                      Tên đăng nhập
+                    </Label>
+                    <Input
+                      id="login-username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="Tên đăng nhập"
+                      autoComplete="username"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="login-password" className="sr-only">
+                      Mật khẩu
+                    </Label>
+                    <Input
+                      id="login-password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Mật khẩu"
+                      autoComplete="current-password"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    variant="outline"
+                    className="w-full"
+                    disabled={username.trim() === "" || password === ""}
+                  >
+                    Đăng nhập bằng tài khoản
+                  </Button>
+                </form>
+              </>
             )}
             <p className="text-center text-xs text-slate-400">
               Đăng nhập lần đầu sẽ mời bạn tạo nhóm hoặc nhập mã mời.

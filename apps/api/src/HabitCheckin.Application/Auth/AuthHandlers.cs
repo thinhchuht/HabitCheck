@@ -58,6 +58,47 @@ public sealed class GoogleLoginHandler(
     }
 }
 
+// ---------- Password login (tài khoản admin) ----------
+
+public sealed record PasswordLoginCommand(string Username, string Password) : IRequest<GoogleLoginResult>;
+
+public sealed class PasswordLoginValidator : AbstractValidator<PasswordLoginCommand>
+{
+    public PasswordLoginValidator()
+    {
+        RuleFor(x => x.Username).NotEmpty().WithMessage("Thiếu tên đăng nhập");
+        RuleFor(x => x.Password).NotEmpty().WithMessage("Thiếu mật khẩu");
+    }
+}
+
+public sealed class PasswordLoginHandler(IAppDbContext db, IClock clock, IJwtTokenService jwt)
+    : IRequestHandler<PasswordLoginCommand, GoogleLoginResult>
+{
+    public async Task<GoogleLoginResult> Handle(PasswordLoginCommand cmd, CancellationToken ct)
+    {
+        var username = cmd.Username.Trim().ToLowerInvariant();
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Username == username, ct);
+
+        // Sai thông tin → cùng một thông báo, không tiết lộ tài khoản có tồn tại hay không.
+        if (user is null || user.PasswordHash is null
+            || !Pbkdf2PasswordHasher.Verify(cmd.Password, user.PasswordHash))
+            throw new UnauthorizedException("Tài khoản hoặc mật khẩu không đúng");
+
+        user.LastLoginAt = clock.UtcNow;
+        var accessToken = jwt.CreateToken(user);
+        var refreshToken = TokenHashing.NewRefreshToken();
+        db.RefreshTokens.Add(new RefreshToken
+        {
+            UserId = user.Id,
+            TokenHash = TokenHashing.Sha256Hex(refreshToken),
+            ExpiresAt = clock.UtcNow.AddDays(30)
+        });
+
+        await db.SaveChangesAsync(ct);
+        return new GoogleLoginResult(user.ToDto(), accessToken, refreshToken, jwt.AccessExpiresIn);
+    }
+}
+
 // ---------- Refresh ----------
 
 public sealed record RefreshTokenCommand(string? RawToken) : IRequest<GoogleLoginResult>;

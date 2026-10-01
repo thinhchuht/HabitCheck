@@ -9,6 +9,12 @@ public class User
     public string? AvatarPublicId { get; set; }
     public string? AvatarUrl { get; set; }
 
+    /// <summary>Tên đăng nhập (lowercase) cho tài khoản password — null với user Google thường.</summary>
+    public string? Username { get; set; }
+    /// <summary>Hash PBKDF2-SHA256, null với user Google thường.</summary>
+    public string? PasswordHash { get; set; }
+    public bool IsAdmin { get; set; }
+
     public int? ReminderDeadlineAheadMinutes { get; set; }
     public bool ReminderEndOfDay { get; set; } = true;
 

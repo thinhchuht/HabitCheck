@@ -14,7 +14,8 @@ public sealed record UserDto(
     string? AvatarUrl,
     ReminderDto Reminder,
     string CreatedAt,
-    string? LastLoginAt);
+    string? LastLoginAt,
+    bool IsAdmin);
 
 public sealed record GoogleLoginResult(UserDto User, string AccessToken, string RefreshTokenValue, int AccessExpiresIn);
 

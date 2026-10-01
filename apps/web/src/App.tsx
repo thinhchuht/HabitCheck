@@ -1,9 +1,15 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import { RequireAdmin } from "@/app/RequireAdmin";
 import { RequireAuth } from "@/app/RequireAuth";
 import { RequireGroup } from "@/app/RequireGroup";
 import { AppShell } from "@/components/AppShell";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { OnboardingPage } from "@/features/auth/OnboardingPage";
+import { AdminDashboardPage } from "@/features/admin/AdminDashboardPage";
+import { AdminGroupsPage } from "@/features/admin/AdminGroupsPage";
+import { AdminGroupDetailPage } from "@/features/admin/AdminGroupDetailPage";
+import { AdminUsersPage } from "@/features/admin/AdminUsersPage";
+import { AdminUserDetailPage } from "@/features/admin/AdminUserDetailPage";
 import { TodayPage } from "@/features/today/TodayPage";
 import { ChallengePage } from "@/features/challenge/ChallengePage";
 import { LiveBoardPage } from "@/features/live-board/LiveBoardPage";
@@ -20,6 +26,19 @@ export function App() {
 
       <Route element={<RequireAuth />}>
         <Route path="/onboarding" element={<OnboardingPage />} />
+
+        <Route element={<RequireAdmin />}>
+          <Route element={<AppShell />}>
+            <Route path="/admin" element={<AdminDashboardPage />} />
+            <Route path="/admin/users" element={<AdminUsersPage />} />
+            <Route path="/admin/users/:id" element={<AdminUserDetailPage />} />
+            <Route path="/admin/groups" element={<AdminGroupsPage />} />
+            <Route
+              path="/admin/groups/:id"
+              element={<AdminGroupDetailPage />}
+            />
+          </Route>
+        </Route>
 
         <Route element={<RequireGroup />}>
           <Route element={<AppShell />}>

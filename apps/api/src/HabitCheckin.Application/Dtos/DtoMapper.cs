@@ -8,7 +8,7 @@ public static class DtoMapper
     public static UserDto ToDto(this User u) => new(
         u.Id.ToString(), u.GoogleSub, u.Email, u.DisplayName, u.AvatarUrl,
         new ReminderDto(u.ReminderDeadlineAheadMinutes, u.ReminderEndOfDay),
-        Fmt.Iso(u.CreatedAt)!, Fmt.Iso(u.LastLoginAt));
+        Fmt.Iso(u.CreatedAt)!, Fmt.Iso(u.LastLoginAt), u.IsAdmin);
 
     public static MemberDto ToDto(this GroupMember m, User u) => new(
         m.UserId.ToString(), u.DisplayName, u.AvatarUrl, m.Role.ToString().ToUpperInvariant(), Fmt.Iso(m.JoinedAt)!);

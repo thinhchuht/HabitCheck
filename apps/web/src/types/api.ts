@@ -32,6 +32,8 @@ export interface UserDto {
   };
   createdAt: string;
   lastLoginAt: string | null;
+  /** Chỉ tài khoản quản trị (đăng nhập bằng tên/mật khẩu hoặc được cấp quyền). */
+  isAdmin: boolean;
 }
 
 export interface MediaDto {
@@ -493,4 +495,89 @@ export interface ProfileUpdatedEvent {
   userId: string;
   displayName: string;
   avatarUrl: string | null;
+}
+
+// ---- Admin ----
+
+export interface AdminUserSummary {
+  id: string;
+  displayName: string;
+  email: string;
+  avatarUrl: string | null;
+  isAdmin: boolean;
+  groupCount: number;
+  createdAt: string;
+  lastLoginAt: string | null;
+}
+
+export interface AdminStats {
+  totalUsers: number;
+  totalGroups: number;
+  activeChallenges: number;
+  draftChallenges: number;
+  checkinsToday: number;
+  penaltyTodayVnd: number;
+  penaltyTotalVnd: number;
+  recentUsers: AdminUserSummary[];
+}
+
+export interface AdminUser {
+  id: string;
+  displayName: string;
+  email: string;
+  username: string | null;
+  avatarUrl: string | null;
+  isAdmin: boolean;
+  createdAt: string;
+  lastLoginAt: string | null;
+  groupCount: number;
+  settledDays: number;
+  failedDays: number;
+  totalPenaltyVnd: number;
+}
+
+export interface AdminUserList {
+  total: number;
+  users: AdminUser[];
+}
+
+/** Một challenge + số liệu chốt ngày (challenge dùng đúng ChallengeDto). */
+export interface AdminChallengeStats {
+  challenge: ChallengeDto;
+  settledDays: number;
+  failedDays: number;
+  totalPenaltyVnd: number;
+}
+
+export interface AdminUserGroup {
+  groupId: string;
+  groupName: string;
+  role: MemberRole;
+  ownerName: string;
+  challenges: AdminChallengeStats[];
+}
+
+export interface AdminUserDetail {
+  user: AdminUser;
+  groups: AdminUserGroup[];
+}
+
+export interface AdminGroup {
+  id: string;
+  name: string;
+  ownerId: string;
+  ownerName: string;
+  memberCount: number;
+  challengeCount: number;
+  createdAt: string;
+}
+
+export interface AdminGroupList {
+  total: number;
+  groups: AdminGroup[];
+}
+
+export interface AdminGroupDetail {
+  group: GroupDto;
+  challenges: AdminChallengeStats[];
 }

@@ -44,6 +44,7 @@ UserDto = {
   displayName: string; avatarUrl: string | null;
   reminder: { deadlineAheadMinutes: number | null; endOfDayReminder: boolean };
   createdAt: string; lastLoginAt: string | null;
+  isAdmin: boolean; // true → có claim "admin" trong JWT, được vào /admin*
 }
 
 MediaDto = {
@@ -214,11 +215,12 @@ FundDto = {
 
 ### Auth
 
-| Method | Path            | Request               | Response                                                                                                                  |
-| ------ | --------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| POST   | `/auth/google`  | `{ idToken: string }` | `200 { accessToken, tokenType: "Bearer", expiresIn: 900 }` + Set-Cookie `hc_refresh`. `401` nếu token Google không hợp lệ |
-| POST   | `/auth/refresh` | (cookie)              | `200` như trên + cookie mới (rotation). `401` nếu không có cookie/đã thu hồi                                              |
-| POST   | `/auth/logout`  | —                     | `204`, xoá cookie                                                                                                         |
+| Method | Path             | Request                                  | Response                                                                                                                                                  |
+| ------ | ---------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/auth/google`   | `{ idToken: string }`                    | `200 { accessToken, tokenType: "Bearer", expiresIn: 900 }` + Set-Cookie `hc_refresh`. `401` nếu token Google không hợp lệ                                 |
+| POST   | `/auth/password` | `{ username: string; password: string }` | `200` như `/auth/google` (tài khoản mật khẩu, hiện dùng cho admin). Lỗi trả chung `401 "Tài khoản hoặc mật khẩu không đúng"`. Rate limit 10 req/5 phút/IP |
+| POST   | `/auth/refresh`  | (cookie)                                 | `200` như trên + cookie mới (rotation). `401` nếu không có cookie/đã thu hồi                                                                              |
+| POST   | `/auth/logout`   | —                                        | `204`, xoá cookie                                                                                                                                         |
 
 ### Me / Profile
 
@@ -302,6 +304,58 @@ Trang bằng chứng là **chỉ đọc**: bằng chứng hợp lệ ngay khi up
 | GET    | `/groups/{id}/fund`          | —                                                           | `200 FundDto`                                                                       |
 | POST   | `/groups/{id}/fund/payments` | `{ userId: string; amount: number; note?: string \| null }` | `201 { id, amount, kind: "PAYMENT", note, createdAt }` (chỉ OWNER)                  |
 
+### Admin (chỉ `role=admin` — JWT phải có claim `role: "admin"`)
+
+DTO:
+
+```ts
+AdminStats = {
+  totalUsers: number; totalGroups: number;
+  activeChallenges: number; draftChallenges: number;
+  checkinsToday: number; penaltyTodayVnd: number; penaltyTotalVnd: number;
+  recentUsers: {
+    id: string; displayName: string; email: string; avatarUrl: string | null;
+    isAdmin: boolean; groupCount: number;
+    createdAt: string; lastLoginAt: string | null;
+  }[];
+}
+AdminUser = {
+  id: string; displayName: string; email: string;
+  username: string | null; avatarUrl: string | null; isAdmin: boolean;
+  createdAt: string; lastLoginAt: string | null;
+  groupCount: number; settledDays: number; failedDays: number; totalPenaltyVnd: number;
+}
+AdminUserList = { total: number; users: AdminUser[] }
+AdminChallengeStats = {
+  challenge: ChallengeDto;          // kèm activities[]
+  settledDays: number; failedDays: number; totalPenaltyVnd: number;
+}
+AdminUserGroup = {
+  groupId: string; groupName: string; role: MemberRole; ownerName: string;
+  challenges: AdminChallengeStats[];   // các kỳ của user trong nhóm này
+}
+AdminUserDetail = { user: AdminUser; groups: AdminUserGroup[] }
+AdminGroup = {
+  id: string; name: string; ownerId: string; ownerName: string;
+  memberCount: number; challengeCount: number; createdAt: string;
+}
+AdminGroupList = { total: number; groups: AdminGroup[] }
+AdminGroupDetail = { group: GroupDto; challenges: AdminChallengeStats[] }
+```
+
+| Method | Path                      | Request / Query                                                                             | Response                                                                                  |
+| ------ | ------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| GET    | `/admin/stats`            | —                                                                                           | `200 AdminStats`                                                                          |
+| GET    | `/admin/users`            | `search?` (tên/email, không phân biệt hoa thường), `page=1`, `pageSize=20` (clamped 1..100) | `200 AdminUserList` (sắp `createdAt` giảm)                                                |
+| GET    | `/admin/users/{id}`       | —                                                                                           | `200 AdminUserDetail` · `404` không tồn tại                                               |
+| POST   | `/admin/users/{id}/admin` | —                                                                                           | `204` (cấp quyền admin)                                                                   |
+| DELETE | `/admin/users/{id}/admin` | —                                                                                           | `204` (thu hồi) · `422` nếu tự thu hồi chính mình                                         |
+| GET    | `/admin/groups`           | —                                                                                           | `200 AdminGroupList`                                                                      |
+| GET    | `/admin/groups/{id}`      | —                                                                                           | `200 AdminGroupDetail` · `404` không tồn tại                                              |
+| POST   | `/admin/settle`           | `?date=yyyy-MM-dd` (mặc định hôm nay)                                                       | `200 { date, status }` — **chỉ `ASPNETCORE_ENVIRONMENT=Development`, production trả 403** |
+| POST   | `/admin/finalize`         | `?date=yyyy-MM-dd`                                                                          | như trên                                                                                  |
+| POST   | `/admin/activate`         | —                                                                                           | như trên                                                                                  |
+
 ## 3. Luồng upload media (Cloudinary signed)
 
 1. Client chọn file (hỗ trợ `capture` camera). Ảnh: nén bằng `browser-image-compression` (max ~1600px) trước khi upload. Video: kiểm tra ≤ 60s/50MB phía client.
@@ -342,6 +396,8 @@ Cloudinary__ProofPreset      upload preset SIGNED cho bằng chứng (folder m�
 Cloudinary__AvatarPreset     upload preset SIGNED cho avatar
 App__TimeZone                Asia/Ho_Chi_Minh
 App__CorsOrigin              origin frontend được phép (dev: http://localhost:5173)
+Admin__Username              tên đăng nhập admin (mặc định "thinhchuht") — seeder tạo/cập nhật khi API khởi động
+Admin__Password              (tuỳ chọn) mật khẩu admin; nếu có giá trị, hash được cập nhật mỗi lần khởi động (đường xoay mật khẩu). Repo chỉ chứa hash PBKDF2, không có plaintext
 ```
 
 Frontend (Vite env): `VITE_API_URL` (mặc định `/api`), `VITE_GOOGLE_CLIENT_ID`.

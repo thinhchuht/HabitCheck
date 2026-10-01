@@ -4,6 +4,7 @@ import {
   ChevronUp,
   Flame,
   LogOut,
+  Shield,
   ShieldCheck,
   Target,
   UserCircle,
@@ -39,6 +40,9 @@ const NAV_ITEMS = [
   { to: "/fund", label: "Quỹ", icon: Wallet },
   { to: "/group", label: "Nhóm", icon: UsersRound },
 ] as const;
+
+/** Mục chỉ hiện với user có quyền quản trị. */
+const ADMIN_NAV_ITEM = { to: "/admin", label: "Admin", icon: Shield } as const;
 
 function Logo() {
   return (
@@ -161,7 +165,10 @@ function UserMenu({ compact = false }: { compact?: boolean }) {
 export function AppShell() {
   useLiveEvents();
   const accessToken = useAuthStore((s) => s.accessToken);
+  const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
+
+  const navItems = user?.isAdmin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
 
   // Sync user từ server mỗi lần mở app: user trong store persist có thể lỗi thời
   // (avatar/tên đổi từ thiết bị khác) → gây hiện tượng avatar "lúc có lúc không".
@@ -189,7 +196,7 @@ export function AppShell() {
           <Logo />
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+          {navItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}

@@ -269,9 +269,12 @@ CREATE TYPE member_role      AS ENUM ('OWNER','ADMIN','MEMBER');
 
 CREATE TABLE users (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  google_sub    text UNIQUE NOT NULL,
+  google_sub    text UNIQUE NOT NULL,        -- user Google: "sub…"; tài khoản mật khẩu: "local:{username}"
   email         citext UNIQUE NOT NULL,
   display_name  text NOT NULL,
+  username      varchar(64) UNIQUE,          -- tài khoản mật khẩu (admin); NULL với user Google
+  password_hash varchar(512),                -- "PBKDF2-SHA256$<iter>$<saltB64>$<hashB64>"
+  is_admin      boolean NOT NULL DEFAULT false,
   avatar_public_id text,
   avatar_url    text,
   created_at    timestamptz NOT NULL DEFAULT now(),
@@ -469,12 +472,13 @@ Base: `/api`, auth Bearer JWT, lỗi trả `ProblemDetails` (RFC 7807). OpenAPI 
 
 ### Auth
 
-| Method | Path            | Mô tả                                       |
-| ------ | --------------- | ------------------------------------------- |
-| POST   | `/auth/google`  | `{idToken}` → access token + refresh cookie |
-| POST   | `/auth/refresh` | Làm mới access token                        |
-| POST   | `/auth/logout`  | Thu hồi refresh token                       |
-| GET    | `/me`           | Thông tin user hiện tại                     |
+| Method | Path             | Mô tả                                                                                                 |
+| ------ | ---------------- | ----------------------------------------------------------------------------------------------------- |
+| POST   | `/auth/google`   | `{idToken}` → access token + refresh cookie                                                           |
+| POST   | `/auth/password` | `{username, password}` → access token + refresh cookie (tài khoản admin, rate limit 10 req/5 phút/IP) |
+| POST   | `/auth/refresh`  | Làm mới access token                                                                                  |
+| POST   | `/auth/logout`   | Thu hồi refresh token                                                                                 |
+| GET    | `/me`            | Thông tin user hiện tại                                                                               |
 
 ### Profile
 
@@ -540,6 +544,21 @@ Base: `/api`, auth Bearer JWT, lỗi trả `ProblemDetails` (RFC 7807). OpenAPI 
 | GET    | `/groups/{id}/leaderboard?from=&to=` | Xếp hạng nhóm                                       |
 | GET    | `/groups/{id}/fund`                  | Tổng quỹ, nợ từng người, lịch sử                    |
 | POST   | `/groups/{id}/fund/payments`         | Owner ghi nhận đã đóng tiền                         |
+
+### Admin (chỉ `role=admin`)
+
+| Method | Path                                   | Mô tả                                                                                   |
+| ------ | -------------------------------------- | --------------------------------------------------------------------------------------- |
+| GET    | `/admin/stats`                         | Tổng quan: số user/nhóm/kỳ, check-in hôm nay, phạt hôm nay/tổng, user mới nhất          |
+| GET    | `/admin/users?search=&page=&pageSize=` | Danh sách user (tìm theo tên/email, phân trang), kèm số ngày chốt/fail/tổng phạt        |
+| GET    | `/admin/users/{id}`                    | Chi tiết user + các nhóm tham gia + kỳ/hoạt động + số liệu từng kỳ                      |
+| POST   | `/admin/users/{id}/admin`              | Cấp quyền admin (`204`)                                                                 |
+| DELETE | `/admin/users/{id}/admin`              | Thu hồi quyền admin (`204`) — không được tự thu hồi chính mình                          |
+| GET    | `/admin/groups`                        | Danh sách nhóm: owner, số thành viên, số kỳ                                             |
+| GET    | `/admin/groups/{id}`                   | Chi tiết nhóm + thành viên + kỳ/hoạt động + số liệu từng kỳ                             |
+| POST   | `/admin/settle?date=`                  | Chạy lại `DailySettlementJob` cho 1 ngày (PROVISIONAL) — **chỉ môi trường Development** |
+| POST   | `/admin/finalize?date=`                | Chạy lại `FinalizeJob` cho 1 ngày (FINAL + ghi sổ quỹ) — **chỉ Development**            |
+| POST   | `/admin/activate`                      | Chạy lại `ChallengeActivationJob` — **chỉ Development**                                 |
 
 ---
 
@@ -627,6 +646,16 @@ Server đẩy về group:
 - Đổi avatar (crop tròn, upload Cloudinary), đổi tên hiển thị.
 - Cài đặt nhắc nhở: nhắc trước hạn `DEADLINE` X phút, nhắc cuối ngày nếu `DURATION` chưa check-in.
 - Đăng xuất.
+
+### 7.10 Admin (chỉ user có quyền admin)
+
+Trang `/admin`, mục "Admin" chỉ hiện trong sidebar khi `user.isAdmin = true` (route bảo vệ bằng `RequireAdmin`, client redirect + server policy `Admin`).
+
+- **Dashboard**: số liệu tổng (user, nhóm, kỳ ACTIVE/DRAFT, check-in hôm nay, phạt hôm nay, tổng phạt), người dùng mới nhất, thẻ vận hành job (chạy lại settle/finalize/activate cho 1 ngày — chỉ Development).
+- **User** (`/admin/users`): tìm kiếm theo tên/email, phân trang; mỗi dòng: avatar, badge Admin, email, số nhóm, ngày chốt/fail, tổng phạt. Bấm vào → chi tiết.
+- **Chi tiết user** (`/admin/users/{id}`): thông tin tài khoản (username, tạo ngày, đăng nhập gần nhất, số ngày chốt/fail, tổng phạt), nút cấp/thu hồi quyền admin (không tự thu hồi chính mình); theo từng nhóm: vai trò, chủ nhóm, danh sách kỳ thử thách kèm số liệu (số ngày chốt, ngày fail, tổng phạt) — bấm mở xem hoạt động của kỳ.
+- **Nhóm** (`/admin/groups`): danh sách tất cả nhóm (owner, số thành viên, số kỳ) → chi tiết.
+- **Chi tiết nhóm** (`/admin/groups/{id}`): thành viên + vai trò, bảng phạt của nhóm, danh sách kỳ thử thách + hoạt động + số liệu.
 
 ---
 
@@ -805,10 +834,13 @@ public UploadSignature Sign(UploadIntent intent, string folder)
 ## 10. Bảo mật & phân quyền
 
 - Chỉ chấp nhận Google ID token có `aud` = Client ID, `email_verified = true`. (Tuỳ chọn: whitelist domain hoặc danh sách email.)
-- Access token JWT 15 phút; refresh token lưu hash, cookie `HttpOnly; Secure; SameSite=Strict`, xoay vòng mỗi lần refresh.
-- Policy: `GroupMember`, `GroupAdmin`, `ChallengeOwner` (ASP.NET Core authorization handlers).
+- Tài khoản admin (đăng nhập bằng username/mật khẩu): mật khẩu băm **PBKDF2-SHA256, 210k iterations, salt 16B** (format `PBKDF2-SHA256$<iter>$<saltB64>$<hashB64>`), so khớp bằng `FixedTimeEquals`. Lỗi đăng nhập trả một thông báo chung, không tiết lộ tài khoản có tồn tại hay không.
+- Seeder chạy khi API khởi động (sau migration): tạo admin theo `Admin:Username` (mặc định `thinhchuht`); mật khẩu lấy từ `Admin:Password` (env/appsettings) nếu có — mỗi lần khởi động có giá trị này, hash được cập nhật (đường xoay mật khẩu) — nếu không có thì dùng hash mặc định nhúng sẵn. **Repo không chứa plaintext mật khẩu.**
+- Access token JWT 15 phút; thêm claim `role = "admin"` khi `is_admin = true`; refresh token lưu hash, cookie `HttpOnly; Secure; SameSite=Strict`, xoay vòng mỗi lần refresh.
+- Policy: `GroupMember`, `GroupAdmin`, `ChallengeOwner`, `Admin` (RequireRole("admin")).
 - Chỉ thành viên cùng nhóm xem được check-in/bằng chứng của nhau.
-- Rate limit (`Microsoft.AspNetCore.RateLimiting`): upload intent 30/phút/user.
+- Rate limit (`Microsoft.AspNetCore.RateLimiting`): upload intent 30/phút/user; `/auth/password` 10 req/5 phút/IP.
+- Endpoint vận hành job (`/admin/settle|finalize|activate`) chỉ phản hồi ở môi trường Development, production trả 403.
 - CORS chỉ cho domain frontend. Secret đặt qua biến môi trường, không commit.
 
 ---

@@ -28,12 +28,14 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : IJwtTokenSer
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_opt.Secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email),
-            new Claim(JwtRegisteredClaimNames.Name, user.DisplayName)
+            new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new(JwtRegisteredClaimNames.Email, user.Email),
+            new(JwtRegisteredClaimNames.Name, user.DisplayName)
         };
+        if (user.IsAdmin)
+            claims.Add(new Claim(ClaimTypes.Role, "admin"));
 
         var token = new JwtSecurityToken(
             issuer: _opt.Issuer,

@@ -4,7 +4,16 @@ import type { GoogleLoginResponse } from "@/types/api";
 export const authApi = {
   /** POST /auth/google — exchange a Google ID token for our JWT. */
   google(idToken: string): Promise<GoogleLoginResponse> {
-    return api.post<GoogleLoginResponse>("/auth/google", { idToken }).then((r) => r.data);
+    return api
+      .post<GoogleLoginResponse>("/auth/google", { idToken })
+      .then((r) => r.data);
+  },
+
+  /** POST /auth/password — đăng nhập bằng tên/mật khẩu (tài khoản admin). */
+  password(username: string, password: string): Promise<GoogleLoginResponse> {
+    return api
+      .post<GoogleLoginResponse>("/auth/password", { username, password })
+      .then((r) => r.data);
   },
 
   /** POST /auth/refresh — rotate the refresh cookie, get a new access token. */
