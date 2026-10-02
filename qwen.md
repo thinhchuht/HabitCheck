@@ -915,6 +915,8 @@ services:
       Cloudinary__CloudName: ${CLOUDINARY_CLOUD_NAME}
       Cloudinary__ApiKey: ${CLOUDINARY_API_KEY}
       Cloudinary__ApiSecret: ${CLOUDINARY_API_SECRET}
+      Admin__Username: ${ADMIN_USERNAME:-thinhchuht}
+      Admin__Password: ${ADMIN_PASSWORD:-} # bắt buộc ở production — seeder xoay hash mỗi lần khởi động
       App__TimeZone: Asia/Ho_Chi_Minh
       TZ: Asia/Ho_Chi_Minh
     depends_on: [db]

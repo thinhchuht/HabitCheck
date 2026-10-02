@@ -29,6 +29,8 @@ services:
       Cloudinary__ApiSecret: ${CLOUDINARY_API_SECRET}
       Cloudinary__ProofPreset: ${CLOUDINARY_PROOF_PRESET:-habit_proof_signed}
       Cloudinary__AvatarPreset: ${CLOUDINARY_AVATAR_PRESET:-habit_avatar_signed}
+      Admin__Username: ${ADMIN_USERNAME:-thinhchuht}
+      Admin__Password: ${ADMIN_PASSWORD:-}
       App__TimeZone: Asia/Ho_Chi_Minh
       App__CorsOrigin: ${FRONTEND_URL:-http://localhost:8080}
       TZ: Asia/Ho_Chi_Minh

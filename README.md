@@ -94,12 +94,13 @@ Truy cập http://localhost:8080 (Nginx proxy: `/` → web, `/api` + `/hubs` →
 
 ## Cần cấu hình
 
-| Key                | Ở đâu                                                        | Ý nghĩa                                                                                                |
-| ------------------ | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `GOOGLE_CLIENT_ID` | deploy/.env, apps/web/.env, api appsettings.Development.json | Google OAuth Client ID (Web), thêm URI redirect của app                                                |
-| `JWT_SECRET`       | deploy/.env, api                                             | Bí mật ký JWT nội bộ (≥ 32 ký tự)                                                                      |
-| `CLOUDINARY_*`     | deploy/.env, api                                             | Cloud name + API key/secret + 2 upload preset **signed** (`habit_proof_signed`, `habit_avatar_signed`) |
-| `DB_PASSWORD`      | deploy/.env                                                  | Mật khẩu Postgres                                                                                      |
+| Key                | Ở đâu                                                        | Ý nghĩa                                                                                                                                        |
+| ------------------ | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GOOGLE_CLIENT_ID` | deploy/.env, apps/web/.env, api appsettings.Development.json | Google OAuth Client ID (Web), thêm URI redirect của app                                                                                        |
+| `JWT_SECRET`       | deploy/.env, api                                             | Bí mật ký JWT nội bộ (≥ 32 ký tự)                                                                                                              |
+| `CLOUDINARY_*`     | deploy/.env, api                                             | Cloud name + API key/secret + 2 upload preset **signed** (`habit_proof_signed`, `habit_avatar_signed`)                                         |
+| `DB_PASSWORD`      | deploy/.env                                                  | Mật khẩu Postgres                                                                                                                              |
+| `ADMIN_PASSWORD`   | deploy/.env                                                  | Mật khẩu admin — **bắt buộc ở production**; seeder tạo/cập nhật tài khoản khi API khởi động (username `ADMIN_USERNAME`, mặc định `thinhchuht`) |
 
 Tạo upload preset signed trong Cloudinary console: preset proof (folder `habit`, ảnh resize 1600px + `q_auto,f_auto`, video sinh thumbnail) và preset avatar (folder `avatars`).
 
