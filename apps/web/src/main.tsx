@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { App } from "@/App";
 import { AppProviders } from "@/app/AppProviders";
+import { SessionGate } from "@/app/SessionGate";
 import "@/styles.css";
 
 const rootElement = document.getElementById("root");
@@ -14,8 +15,10 @@ ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <BrowserRouter>
       <AppProviders>
-        <App />
+        <SessionGate>
+          <App />
+        </SessionGate>
       </AppProviders>
     </BrowserRouter>
-  </React.StrictMode>
+  </React.StrictMode>,
 );
