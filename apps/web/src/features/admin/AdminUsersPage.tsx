@@ -39,7 +39,7 @@ export function AdminUsersPage() {
     <div>
       <PageHeader
         title="Người dùng"
-        subtitle="Tìm kiếm và xem chi tiết tài khoản, nhóm tham gia, các kỳ đã tham gia."
+        subtitle="Tìm kiếm và quản lý tài khoản — xem chi tiết, cấp quyền admin, chặn hoặc đặt lại mật khẩu."
       />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

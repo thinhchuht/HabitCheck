@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { authApi } from "@/api/auth";
 import { getApiErrorMessage } from "@/api/client";
 import { meApi } from "@/api/me";
+import { PageHeader } from "@/components/PageHeader";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,15 +63,15 @@ export function ProfilePage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-          Hồ sơ
-        </h1>
+      <PageHeader
+        title="Hồ sơ"
+        subtitle="Thông tin cá nhân, avatar và cài đặt nhắc nhở."
+      >
         <Button variant="destructive" onClick={() => void handleLogout()}>
           <LogOut className="mr-1.5 h-4 w-4" />
           Đăng xuất
         </Button>
-      </div>
+      </PageHeader>
 
       <Card>
         <CardHeader>

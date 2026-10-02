@@ -109,11 +109,11 @@ export function TodayPage() {
   return (
     <div>
       <PageHeader
-        title={fmtDayLong(data.date)}
+        title="Hôm nay"
         subtitle={
           data.activeChallenge
-            ? `Kỳ: "${data.activeChallenge.title}" (${CHALLENGE_STATUS_LABELS[data.activeChallenge.status]})`
-            : undefined
+            ? `${fmtDayLong(data.date)} · Kỳ "${data.activeChallenge.title}" (${CHALLENGE_STATUS_LABELS[data.activeChallenge.status]})`
+            : fmtDayLong(data.date)
         }
       >
         <Badge variant="secondary">

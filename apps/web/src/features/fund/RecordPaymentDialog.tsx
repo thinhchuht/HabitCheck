@@ -16,6 +16,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatVND } from "@/lib/format";
 import type { MemberDto } from "@/types/api";
 
@@ -77,18 +84,18 @@ export function RecordPaymentDialog({
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="pay-member">Thành viên *</Label>
-            <select
-              id="pay-member"
-              value={memberId}
-              onChange={(e) => setMemberId(e.target.value)}
-              className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
-            >
-              {members.map((m) => (
-                <option key={m.userId} value={m.userId}>
-                  {m.displayName}
-                </option>
-              ))}
-            </select>
+            <Select value={memberId || undefined} onValueChange={setMemberId}>
+              <SelectTrigger id="pay-member" aria-label="Chọn thành viên">
+                <SelectValue placeholder="Chọn thành viên" />
+              </SelectTrigger>
+              <SelectContent>
+                {members.map((m) => (
+                  <SelectItem key={m.userId} value={m.userId}>
+                    {m.displayName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

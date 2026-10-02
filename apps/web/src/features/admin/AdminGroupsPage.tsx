@@ -33,7 +33,7 @@ export function AdminGroupsPage() {
     <div>
       <PageHeader
         title="Nhóm"
-        subtitle="Tất cả nhóm trong hệ thống: thành viên, kỳ thử thách và hoạt động."
+        subtitle="Toàn bộ nhóm trong hệ thống — mở một nhóm để xem thành viên, kỳ và hoạt động."
       />
 
       {isLoading ? (

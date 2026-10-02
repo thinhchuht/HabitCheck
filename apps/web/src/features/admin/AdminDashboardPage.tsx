@@ -89,8 +89,8 @@ export function AdminDashboardPage() {
   return (
     <div>
       <PageHeader
-        title="Quản trị"
-        subtitle="Tổng quan hệ thống: người dùng, nhóm, kỳ thử thách và quỹ phạt."
+        title="Tổng quan"
+        subtitle="Số liệu toàn hệ thống: người dùng, nhóm, kỳ thử thách, check-in hôm nay và quỹ phạt."
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

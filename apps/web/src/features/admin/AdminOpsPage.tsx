@@ -23,6 +23,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/PageHeader";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -71,13 +72,13 @@ export function AdminOpsPage() {
   });
 
   const logTotalPages = logsQuery.data
-    ? Math.max(
-        1,
-        Math.ceil(logsQuery.data.total / AUDIT_PAGE_SIZE),
-      )
+    ? Math.max(1, Math.ceil(logsQuery.data.total / AUDIT_PAGE_SIZE))
     : 1;
 
-  async function runJob(kind: "settle" | "finalize" | "activate", label: string) {
+  async function runJob(
+    kind: "settle" | "finalize" | "activate",
+    label: string,
+  ) {
     setRunning(kind);
     try {
       const res =
@@ -105,7 +106,9 @@ export function AdminOpsPage() {
     setSending(true);
     try {
       const res = await adminApi.announce(text);
-      toast.success(`Đã gửi thông báo tới ${res.senderName ? "mọi người" : "…"}`);
+      toast.success(
+        `Đã gửi thông báo tới ${res.senderName ? "mọi người" : "…"}`,
+      );
       setMessage("");
       void queryClient.invalidateQueries({ queryKey: ["admin", "audit-logs"] });
     } catch (err) {
@@ -217,11 +220,7 @@ export function AdminOpsPage() {
           <div className="flex flex-wrap items-end gap-2">
             <div className="w-44 space-y-1.5">
               <p className="text-xs font-medium text-slate-500">Ngày</p>
-              <Input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
+              <DatePicker value={date} onChange={setDate} />
             </div>
             <Button
               variant="outline"
@@ -235,9 +234,7 @@ export function AdminOpsPage() {
               disabled={running != null}
               onClick={() => void runJob("finalize", "Finalize")}
             >
-              {running === "finalize"
-                ? "Đang chạy…"
-                : "Finalize (FINAL)"}
+              {running === "finalize" ? "Đang chạy…" : "Finalize (FINAL)"}
             </Button>
             <Button
               variant="outline"
@@ -266,7 +263,10 @@ export function AdminOpsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={(e) => void sendAnnouncement(e)} className="space-y-3">
+          <form
+            onSubmit={(e) => void sendAnnouncement(e)}
+            className="space-y-3"
+          >
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 className="flex-1"

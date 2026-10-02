@@ -8,7 +8,6 @@ import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fmtDate } from "@/lib/format";
 import { useAppStore } from "@/store/app";
 import { useAuthStore } from "@/store/auth";
 import { InviteCodeCard } from "./InviteCodeCard";
@@ -19,9 +18,18 @@ export function GroupPage() {
   const groupId = useAppStore((s) => s.selectedGroupId);
   const me = useAuthStore((s) => s.user);
 
-  const { data: group, isLoading, isError, error, refetch } = useQuery({
+  const {
+    data: group,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["group", groupId],
-    queryFn: () => (groupId ? groupsApi.get(groupId) : Promise.reject(new Error("Chưa chọn nhóm"))),
+    queryFn: () =>
+      groupId
+        ? groupsApi.get(groupId)
+        : Promise.reject(new Error("Chưa chọn nhóm")),
     enabled: groupId != null,
   });
 
@@ -58,7 +66,10 @@ export function GroupPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Nhóm" subtitle={`Tạo ngày ${fmtDate(group.createdAt)}`}>
+      <PageHeader
+        title="Nhóm"
+        subtitle="Mã mời, thành viên và cấu hình bậc phạt của nhóm."
+      >
         <Link to="/onboarding">
           <Button variant="outline">Đổi nhóm</Button>
         </Link>
@@ -70,23 +81,36 @@ export function GroupPage() {
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-400">Mã nhóm</p>
-            <p className="mt-0.5 font-mono font-semibold text-slate-800">{group.id.slice(0, 8)}</p>
+            <p className="text-xs uppercase tracking-wide text-slate-400">
+              Mã nhóm
+            </p>
+            <p className="mt-0.5 font-mono font-semibold text-slate-800">
+              {group.id.slice(0, 8)}
+            </p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-400">Cửa sổ kiểm tra</p>
+            <p className="text-xs uppercase tracking-wide text-slate-400">
+              Cửa sổ kiểm tra
+            </p>
             <p className="mt-0.5 font-semibold text-slate-800">
               {group.reviewWindowHours} giờ
             </p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-400">Thành viên</p>
-            <p className="mt-0.5 font-semibold text-slate-800">{group.members.length} người</p>
+            <p className="text-xs uppercase tracking-wide text-slate-400">
+              Thành viên
+            </p>
+            <p className="mt-0.5 font-semibold text-slate-800">
+              {group.members.length} người
+            </p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-400">Chủ nhóm</p>
+            <p className="text-xs uppercase tracking-wide text-slate-400">
+              Chủ nhóm
+            </p>
             <p className="mt-0.5 font-semibold text-slate-800">
-              {group.members.find((m) => m.userId === group.ownerId)?.displayName ?? "—"}
+              {group.members.find((m) => m.userId === group.ownerId)
+                ?.displayName ?? "—"}
             </p>
           </div>
         </CardContent>

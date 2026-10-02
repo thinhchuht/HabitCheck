@@ -66,7 +66,7 @@ export function LiveBoardPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Bảng live nhóm" subtitle={fmtDayLong(data.date)}>
+      <PageHeader title="Bảng live" subtitle={fmtDayLong(data.date)}>
         <Badge variant={data.totalExpectedPenalty > 0 ? "danger" : "success"}>
           Tổng phạt dự kiến: {formatVND(data.totalExpectedPenalty)}
         </Badge>

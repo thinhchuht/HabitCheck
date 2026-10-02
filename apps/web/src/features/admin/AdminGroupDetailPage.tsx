@@ -74,7 +74,7 @@ export function AdminGroupDetailPage() {
       </Link>
       <PageHeader
         title={g.name}
-        subtitle={`Tạo ${fmtDate(g.createdAt)} · mã mời ${g.inviteCode} · cửa sổ xem lại ${g.reviewWindowHours}h`}
+        subtitle={`Tạo ${fmtDate(g.createdAt)} · Mã mời ${g.inviteCode} · Cửa sổ kiểm tra ${g.reviewWindowHours} giờ`}
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -90,7 +90,10 @@ export function AdminGroupDetailPage() {
               {g.members.map((m) => (
                 <li key={m.userId} className="flex items-center gap-3 py-2.5">
                   <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarImage src={m.avatarUrl ?? undefined} alt={m.displayName} />
+                    <AvatarImage
+                      src={m.avatarUrl ?? undefined}
+                      alt={m.displayName}
+                    />
                     <AvatarFallback>
                       {firstName(m.displayName).toUpperCase().slice(0, 1)}
                     </AvatarFallback>
@@ -128,7 +131,9 @@ export function AdminGroupDetailPage() {
                   </li>
                 ))}
                 <li className="flex justify-between text-slate-600">
-                  <span>Mỗi hoạt động fail thêm (sau bậc {tiers.length - 1})</span>
+                  <span>
+                    Mỗi hoạt động fail thêm (sau bậc {tiers.length - 1})
+                  </span>
                   <span className="font-medium tabular-nums">
                     +{formatVND(g.penaltyTiers.extraPerActivity)}
                   </span>
@@ -150,7 +155,9 @@ export function AdminGroupDetailPage() {
             </CardHeader>
             <CardContent>
               {data.challenges.length === 0 ? (
-                <p className="text-sm text-slate-400">Nhóm chưa có kỳ thử thách nào.</p>
+                <p className="text-sm text-slate-400">
+                  Nhóm chưa có kỳ thử thách nào.
+                </p>
               ) : (
                 <div className="space-y-3">
                   {data.challenges.map((item) => (

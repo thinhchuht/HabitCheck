@@ -32,7 +32,10 @@ export function StatsPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Thống kê" subtitle={`Khoảng ${from} → ${to}`} />
+      <PageHeader
+        title="Thống kê"
+        subtitle="Tỷ lệ hoàn thành, streak, lịch nhiệt và xu hướng phạt của bạn."
+      />
 
       <div className="flex gap-1.5">
         {RANGES.map((r) => (

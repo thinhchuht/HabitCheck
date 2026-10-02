@@ -168,7 +168,10 @@ export function AdminUserDetailPage() {
         <ArrowLeft className="h-4 w-4" />
         Danh sách user
       </Link>
-      <PageHeader title={u.displayName} subtitle={u.email} />
+      <PageHeader
+        title={u.displayName}
+        subtitle={`Tạo ngày ${fmtDate(u.createdAt)} · Tham gia ${u.groupCount} nhóm`}
+      />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="border-slate-200/80 lg:col-span-1">

@@ -23,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -108,22 +109,20 @@ function CreateForm({ groupId }: { groupId: string }) {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="ch-start">Ngày bắt đầu *</Label>
-              <Input
+              <DatePicker
                 id="ch-start"
-                type="date"
                 value={startDate}
                 min={minStartDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={setStartDate}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="ch-end">Ngày kết thúc *</Label>
-              <Input
+              <DatePicker
                 id="ch-end"
-                type="date"
                 value={endDate}
                 min={startDate || minStartDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={setEndDate}
               />
             </div>
           </div>
@@ -241,21 +240,19 @@ function DraftSection({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="draft-start">Ngày bắt đầu</Label>
-                <Input
+                <DatePicker
                   id="draft-start"
-                  type="date"
                   value={startDate}
                   min={vnNow().add(1, "day").format("YYYY-MM-DD")}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={setStartDate}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="draft-end">Ngày kết thúc</Label>
-                <Input
+                <DatePicker
                   id="draft-end"
-                  type="date"
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  onChange={setEndDate}
                 />
               </div>
             </div>
@@ -548,7 +545,7 @@ export function ChallengePage() {
     <div className="space-y-6">
       <PageHeader
         title="Kỳ thử thách"
-        subtitle="Định nghĩa bảng lịch hoạt động trong ngày — giờ chính xác hoặc thời lượng — kèm bằng chứng (tick + chụp ảnh) cho cả nhóm."
+        subtitle="Tạo kỳ, sắp xếp hoạt động hằng ngày — tự động khoá từ 00:00 ngày bắt đầu."
       />
 
       <GroupChallengesSection groupId={groupId} />

@@ -18,6 +18,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/EmptyState";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/PageHeader";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ACTIVITY_TYPE_LABELS,
@@ -247,7 +254,7 @@ export function AdminActivitiesPage() {
     <div>
       <PageHeader
         title="Kỳ thử thách"
-        subtitle="Toàn bộ kỳ trong mọi nhóm — bấm vào một kỳ để xem hoạt động do người tạo kỳ đó định nghĩa."
+        subtitle="Tất cả kỳ của mọi nhóm — bấm vào một kỳ để xem hoạt động do người tạo định nghĩa."
       />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -263,20 +270,32 @@ export function AdminActivitiesPage() {
             }}
           />
         </div>
-        <select
-          className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        <Select
           value={status}
-          onChange={(e) => {
-            setStatus(e.target.value as "ALL" | ChallengeStatus);
+          onValueChange={(v) => {
+            setStatus(v as "ALL" | ChallengeStatus);
             setPage(1);
           }}
         >
-          <option value="ALL">Mọi trạng thái</option>
-          <option value="DRAFT">{CHALLENGE_STATUS_LABELS.DRAFT}</option>
-          <option value="ACTIVE">{CHALLENGE_STATUS_LABELS.ACTIVE}</option>
-          <option value="COMPLETED">{CHALLENGE_STATUS_LABELS.COMPLETED}</option>
-          <option value="CANCELLED">{CHALLENGE_STATUS_LABELS.CANCELLED}</option>
-        </select>
+          <SelectTrigger className="w-full sm:w-56" aria-label="Lọc trạng thái">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Mọi trạng thái</SelectItem>
+            <SelectItem value="DRAFT">
+              {CHALLENGE_STATUS_LABELS.DRAFT}
+            </SelectItem>
+            <SelectItem value="ACTIVE">
+              {CHALLENGE_STATUS_LABELS.ACTIVE}
+            </SelectItem>
+            <SelectItem value="COMPLETED">
+              {CHALLENGE_STATUS_LABELS.COMPLETED}
+            </SelectItem>
+            <SelectItem value="CANCELLED">
+              {CHALLENGE_STATUS_LABELS.CANCELLED}
+            </SelectItem>
+          </SelectContent>
+        </Select>
         <p className="text-sm text-slate-500">
           {data ? `${data.total} kỳ` : "…"}
         </p>

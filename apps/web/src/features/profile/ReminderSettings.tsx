@@ -5,6 +5,13 @@ import { getApiErrorMessage } from "@/api/client";
 import { meApi } from "@/api/me";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useAuthStore } from "@/store/auth";
 import type { UserDto } from "@/types/api";
@@ -56,18 +63,18 @@ export function ReminderSettings({ user }: ReminderSettingsProps) {
     <div className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="rem-ahead">Nhắc trước hạn (hoạt động mốc giờ)</Label>
-        <select
-          id="rem-ahead"
-          value={ahead}
-          onChange={(e) => setAhead(e.target.value)}
-          className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
-        >
-          {AHEAD_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+        <Select value={ahead} onValueChange={setAhead}>
+          <SelectTrigger id="rem-ahead" aria-label="Nhắc trước hạn">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {AHEAD_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex items-center justify-between">
@@ -81,7 +88,11 @@ export function ReminderSettings({ user }: ReminderSettingsProps) {
       </div>
 
       {dirty ? (
-        <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>
+        <Button
+          size="sm"
+          onClick={() => save.mutate()}
+          disabled={save.isPending}
+        >
           {save.isPending ? "Đang lưu…" : "Lưu cài đặt"}
         </Button>
       ) : null}

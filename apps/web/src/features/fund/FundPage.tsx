@@ -85,7 +85,7 @@ export function FundPage() {
     <div className="space-y-5">
       <PageHeader
         title="Quỹ phạt"
-        subtitle="Tổng quỹ, số dư nợ và lịch sử đóng tiền của nhóm."
+        subtitle="Tổng quỹ, số dư nợ từng thành viên và lịch sử phạt / đóng tiền."
       >
         {isOwner ? (
           <RecordPaymentDialog

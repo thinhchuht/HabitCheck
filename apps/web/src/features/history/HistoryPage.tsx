@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CHALLENGE_STATUS_LABELS, FAIL_REASON_LABELS } from "@/lib/constants";
 import { formatVND, fmtDate, fmtTime, vn, vnNow } from "@/lib/format";
@@ -237,7 +238,7 @@ export function HistoryPage() {
     <div className="space-y-5">
       <PageHeader
         title="Lịch sử nhóm"
-        subtitle={`Từ ${fmtDate(from)} → ${fmtDate(to)}`}
+        subtitle={`Từ ${fmtDate(from)} đến ${fmtDate(to)}`}
       >
         {data ? (
           <Badge variant={data.totalPenalty > 0 ? "danger" : "success"}>
@@ -254,17 +255,11 @@ export function HistoryPage() {
           >
             Từ
           </label>
-          <input
+          <DatePicker
             id="history-from"
-            type="date"
             value={from}
             max={to}
-            onChange={(e) =>
-              e.target.value
-                ? setFrom(e.target.value <= to ? e.target.value : to)
-                : null
-            }
-            className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800"
+            onChange={(v) => setFrom(v <= to ? v : to)}
           />
         </div>
         <div className="space-y-1.5">
@@ -274,18 +269,12 @@ export function HistoryPage() {
           >
             Đến
           </label>
-          <input
+          <DatePicker
             id="history-to"
-            type="date"
             value={to}
             min={from}
             max={today}
-            onChange={(e) =>
-              e.target.value
-                ? setTo(e.target.value >= from ? e.target.value : from)
-                : null
-            }
-            className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800"
+            onChange={(v) => setTo(v >= from ? v : from)}
           />
         </div>
         <div className="flex flex-wrap gap-1.5">

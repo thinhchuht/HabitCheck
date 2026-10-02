@@ -110,7 +110,7 @@ export function OnboardingPage() {
       <div className="mx-auto w-full max-w-3xl">
         <PageHeader
           title="Vào nhóm"
-          subtitle="Tạo nhóm mới, nhập mã mời, hoặc chọn lại nhóm đã tham gia. Có thể tham gia nhiều nhóm — nhóm cũ giữ nguyên, không cần xoá."
+          subtitle="Tạo nhóm mới hoặc nhập mã mời. Có thể tham gia nhiều nhóm — nhóm cũ vẫn giữ nguyên."
         />
         <div className="space-y-6">
           {loadingGroups || groupsFailed || (myGroups ?? []).length > 0 ? (

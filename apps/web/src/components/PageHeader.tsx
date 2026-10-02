@@ -14,7 +14,9 @@ export function PageHeader({ title, subtitle, children }: PageHeaderProps) {
           {title}
         </h1>
         {subtitle ? (
-          <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+          <p className="mt-1 max-w-2xl text-sm leading-snug text-slate-500">
+            {subtitle}
+          </p>
         ) : null}
       </div>
       {children ? (

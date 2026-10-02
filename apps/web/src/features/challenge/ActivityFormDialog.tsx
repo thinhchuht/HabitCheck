@@ -17,6 +17,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAppStore } from "@/store/app";
 import type { ActivityDto, ActivityInput } from "@/types/api";
@@ -120,33 +127,37 @@ function Time24Selects({
   const hh = value.length >= 2 ? value.slice(0, 2) : "";
   const mm = value.length >= 5 ? value.slice(3, 5) : "";
   return (
-    <div className="flex items-center gap-1.5">
-      <select
-        id={hourId}
-        className="h-10 w-24 rounded-lg border border-slate-300 bg-white px-3 text-sm"
-        value={hh}
-        onChange={(e) => onChange(`${e.target.value}:${mm || "00"}`)}
+    <div className="grid grid-cols-2 gap-2">
+      <Select
+        value={hh || undefined}
+        onValueChange={(h) => onChange(`${h}:${mm || "00"}`)}
       >
-        <option value="">--</option>
-        {HOURS.map((h) => (
-          <option key={h} value={h}>
-            {h} giờ
-          </option>
-        ))}
-      </select>
-      <select
-        id={minuteId}
-        className="h-10 w-24 rounded-lg border border-slate-300 bg-white px-3 text-sm"
-        value={mm}
-        onChange={(e) => onChange(`${hh || "00"}:${e.target.value}`)}
+        <SelectTrigger id={hourId} aria-label="Chọn giờ">
+          <SelectValue placeholder="Chọn giờ" />
+        </SelectTrigger>
+        <SelectContent>
+          {HOURS.map((h) => (
+            <SelectItem key={h} value={h}>
+              {h} giờ
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select
+        value={mm || undefined}
+        onValueChange={(m) => onChange(`${hh || "00"}:${m}`)}
       >
-        <option value="">--</option>
-        {MINUTES.map((m) => (
-          <option key={m} value={m}>
-            {m} phút
-          </option>
-        ))}
-      </select>
+        <SelectTrigger id={minuteId} aria-label="Chọn phút">
+          <SelectValue placeholder="Chọn phút" />
+        </SelectTrigger>
+        <SelectContent>
+          {MINUTES.map((m) => (
+            <SelectItem key={m} value={m}>
+              {m} phút
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -375,19 +386,28 @@ export function ActivityFormDialog({
             {unitKind === "TIME" ? (
               <div className="space-y-2">
                 <Label htmlFor="act-type">Kiểu thời gian *</Label>
-                <select
-                  id="act-type"
-                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
-                  {...register("type")}
-                >
-                  <option value="DEADLINE">
-                    Giờ chính xác (VD: dậy đúng 6:00)
-                  </option>
-                  <option value="DURATION">
-                    Thời lượng (VD: thể dục 1 giờ)
-                  </option>
-                  <option value="WINDOW">Khung giờ (WINDOW)</option>
-                </select>
+                <Controller
+                  name="type"
+                  control={control}
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger id="act-type" aria-label="Kiểu thời gian">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="DEADLINE">
+                          Giờ chính xác (VD: dậy đúng 6:00)
+                        </SelectItem>
+                        <SelectItem value="DURATION">
+                          Thời lượng (VD: thể dục 1 giờ)
+                        </SelectItem>
+                        <SelectItem value="WINDOW">
+                          Khung giờ (WINDOW)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
             ) : null}
           </div>

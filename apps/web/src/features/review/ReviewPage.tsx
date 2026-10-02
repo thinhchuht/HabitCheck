@@ -4,7 +4,14 @@ import { groupsApi } from "@/api/groups";
 import { reviewApi } from "@/api/review";
 import { PageHeader } from "@/components/PageHeader";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { vnNow } from "@/lib/format";
 import { useAppStore } from "@/store/app";
 import { ProofFeed } from "./ProofFeed";
@@ -40,31 +47,36 @@ export function ReviewPage() {
     <div className="space-y-5">
       <PageHeader
         title="Bằng chứng check-in"
-        subtitle="Ảnh check-in của mọi thành viên — hợp lệ ngay khi upload, không cần duyệt."
+        subtitle="Xem ảnh check-in theo ngày, theo thành viên — hợp lệ ngay khi upload, không cần duyệt."
       />
 
       <div className="flex flex-wrap items-center gap-3">
-        <Input
-          type="date"
+        <DatePicker
           value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="w-auto"
-          aria-label="Chọn ngày"
+          onChange={setDate}
+          className="w-full sm:w-auto"
+          ariaLabel="Chọn ngày"
         />
 
-        <select
-          value={memberId}
-          onChange={(e) => setMemberId(e.target.value)}
-          className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm shadow-sm transition-colors focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-          aria-label="Lọc theo thành viên"
+        <Select
+          value={memberId || "all"}
+          onValueChange={(v) => setMemberId(v === "all" ? "" : v)}
         >
-          <option value="">Tất cả thành viên</option>
-          {(group?.members ?? []).map((m) => (
-            <option key={m.userId} value={m.userId}>
-              {m.displayName}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger
+            className="w-full sm:w-64"
+            aria-label="Lọc theo thành viên"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả thành viên</SelectItem>
+            {(group?.members ?? []).map((m) => (
+              <SelectItem key={m.userId} value={m.userId}>
+                {m.displayName}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading ? (
