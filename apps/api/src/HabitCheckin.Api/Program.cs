@@ -222,6 +222,8 @@ try
     }
 
     // ---------- Pipeline ----------
+    // Render/proxy gởi X-Forwarded-For/Proto — cần để lấy IP thật (rate limit) và nhận https.
+    app.UseForwardedHeaders();
     app.UseMiddleware<ExceptionHandlingMiddleware>();
     app.UseCors();
     app.UseRateLimiter();

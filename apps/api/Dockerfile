@@ -18,7 +18,8 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
 
-ENV ASPNETCORE_URLS=http://+:8080
+# Không hardcode ASPNETCORE_URLS: Render tự inject PORT (.NET tự bind http://+:$PORT).
+# docker-compose local vẫn hoạt động vì compose set ASPNETCORE_URLS: http://+:8080.
 ENV TZ=Asia/Ho_Chi_Minh
 EXPOSE 8080
 

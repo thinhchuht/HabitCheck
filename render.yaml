@@ -1,0 +1,49 @@
+# Render Blueprint — Habit Check-in backend (API + Postgres), free tier.
+# Deploy: render.com (đăng nhập bằng GitHub) → New → Blueprint → chọn repo này.
+# Các env `sync: false` phải điền giá trị trong Render dashboard (Settings → Environment).
+services:
+  - type: web
+    name: habit-checkin-api
+    runtime: docker
+    plan: free
+    dockerContext: ./apps/api
+    dockerfilePath: ./apps/api/Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      # Render PG trả connection string dạng URI (postgresql://...?sslmode=require) — Npgsql đọc được.
+      - key: ConnectionStrings__Default
+        fromDatabase:
+          name: habit-db
+          property: connectionString
+      - key: Google__ClientId
+        sync: false
+      - key: Jwt__Secret
+        sync: false
+      - key: Cloudinary__CloudName
+        sync: false
+      - key: Cloudinary__ApiKey
+        sync: false
+      - key: Cloudinary__ApiSecret
+        sync: false
+      - key: Cloudinary__ProofPreset
+        value: habit_proof_signed
+      - key: Cloudinary__AvatarPreset
+        value: habit_avatar_signed
+      - key: Admin__Username
+        value: thinhchuht
+      - key: Admin__Password
+        sync: false
+      # Web vẫn chạy local (localhost:5173) — request đến API qua Vite proxy (same-origin).
+      - key: App__CorsOrigin
+        value: http://localhost:5173
+      - key: App__TimeZone
+        value: Asia/Ho_Chi_Minh
+      - key: TZ
+        value: Asia/Ho_Chi_Minh
+
+databases:
+  - name: habit-db
+    plan: free

@@ -964,6 +964,8 @@ cp deploy/.env.example deploy/.env && docker compose -f deploy/docker-compose.ym
 
 Migration: API tự chạy `db.Database.MigrateAsync()` khi khởi động (môi trường nhỏ) hoặc dùng bundle `dotnet ef migrations bundle` trong CI.
 
+**Deploy nhanh backend (free, public)**: Render Blueprint (`render.yaml` ở gốc repo) — API (Docker) + Postgres cùng plan `free`, URL public. Web có thể chạy local: Vite proxy đổi `target` sang URL Render (cookie same-origin vẫn hoạt động). Free tier ngủ sau 15 phút rảnh → cần keep-alive ping `/api/health` mỗi 5 phút (UptimeRobot) để job Hangfire chạy đúng giờ.
+
 ---
 
 ## 12. Lộ trình triển khai

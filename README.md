@@ -92,6 +92,20 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
 
 Truy cập http://localhost:8080 (Nginx proxy: `/` → web, `/api` + `/hubs` → api).
 
+## Deploy backend lên Render (free, URL public)
+
+Free tier không cần thẻ: web service 512MB RAM + PostgreSQL 1GB. URL public dạng `https://<ten>.onrender.com` — chia sẻ cho nhóm dùng được ngay. Web có thể vẫn chạy local (Vite proxy trỏ sang Render).
+
+```bash
+# 1. render.com → đăng nhập bằng GitHub → New → Blueprint → chọn repo này
+#    (tự đọc render.yaml: web service + Postgres, cả 2 plan free)
+# 2. Điền env trong dashboard: Google__ClientId, Jwt__Secret, Cloudinary__*, Admin__Password
+# 3. Chờ 2–5 phút build. Verify: https://<ten>.onrender.com/api/health → {"status":"ok"...}
+```
+
+- **Keep-alive (bắt buộc)**: free tier ngủ sau 15 phút không có request — job Hangfire (00:05/12:00) không chạy lúc ngủ. Dùng UptimeRobot (free) ping `https://<ten>.onrender.com/api/health` mỗi 5 phút để app luôn thức.
+- Web local dùng API deployed: đổi 2 dòng `target` trong `apps/web/vite.config.ts` (proxy `/api` và `/hubs`) sang `https://<ten>.onrender.com` rồi chạy lại `npm run dev`. Cookie refresh vẫn hoạt động (browser chỉ nói chuyện với `localhost:5173` qua proxy), Google OAuth không cần đổi.
+
 ## Cần cấu hình
 
 | Key                | Ở đâu                                                        | Ý nghĩa                                                                                                                                        |
