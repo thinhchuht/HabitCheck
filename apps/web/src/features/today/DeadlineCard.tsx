@@ -6,14 +6,15 @@ import type { TodayItemDto } from "@/types/api";
 import { CheckInDialog } from "./CheckInDialog";
 import { firstCheckinTime } from "./TodayItemCard";
 
-/** Cửa sổ check-in DEADLINE: ±5 phút quanh mốc giờ (đúng quy tắc server). */
-const WINDOW_MS = 5 * 60 * 1000;
+/** Cửa sổ check-in DEADLINE (đúng quy tắc server): sớm nhất 2h trước mốc, muộn nhất 10 phút sau mốc. */
+const EARLY_MS = 2 * 60 * 60 * 1000;
+const LATE_MS = 10 * 60 * 1000;
 
 interface DeadlineCardProps {
   item: TodayItemDto;
 }
 
-/** Body for DEADLINE activities: cửa sổ ±5 phút quanh mốc giờ + nút check-in. */
+/** Body for DEADLINE activities: cửa sổ 2h trước – 10 phút sau mốc + nút check-in. */
 export function DeadlineCard({ item }: DeadlineCardProps) {
   const now = useNow();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -30,8 +31,8 @@ export function DeadlineCard({ item }: DeadlineCardProps) {
     | "grace"
     | "missed" = "no-deadline";
   if (deadline != null) {
-    const windowStart = deadline - WINDOW_MS;
-    const windowEnd = deadline + WINDOW_MS;
+    const windowStart = deadline - EARLY_MS;
+    const windowEnd = deadline + LATE_MS;
     if (state === "PASS") status = "pass";
     else if (now < windowStart) status = "before";
     else if (now > windowEnd) status = "missed";
@@ -64,14 +65,15 @@ export function DeadlineCard({ item }: DeadlineCardProps) {
           <p className="text-sm text-slate-600">
             Chưa mở giờ check-in — chỉ nhận từ{" "}
             <span className="font-mono font-semibold text-slate-800">
-              {fmtTime(deadline! - WINDOW_MS)}–{fmtTime(deadline! + WINDOW_MS)}
+              {fmtTime(deadline! - EARLY_MS)}–{fmtTime(deadline! + LATE_MS)}
             </span>{" "}
-            (±5 phút quanh mốc {fmtTime(deadlineAt)}).
+            (sớm nhất 2h trước mốc {fmtTime(deadlineAt)}, muộn nhất 10 phút
+            sau).
           </p>
         ) : status === "missed" ? (
           <p className="text-sm font-semibold text-rose-600">
             ĐÃ QUÁ GIỜ (hạn {fmtTime(deadlineAt)}, chốt lúc{" "}
-            {fmtTime(deadline! + WINDOW_MS)})
+            {fmtTime(deadline! + LATE_MS)})
           </p>
         ) : status === "countdown" ? (
           <p className="text-sm text-slate-600">
@@ -84,13 +86,14 @@ export function DeadlineCard({ item }: DeadlineCardProps) {
           <p className="text-sm text-amber-600">
             Đã qua hạn {fmtTime(deadlineAt)} — vẫn kịp check-in, còn{" "}
             <span className="font-mono font-semibold">
-              {formatCountdown(deadline! + WINDOW_MS, now)}
+              {formatCountdown(deadline! + LATE_MS, now)}
             </span>
           </p>
         )}
         {firstAt ? (
           <p className="mt-1 text-xs text-slate-400">
-            Check-in đầu tiên lúc {firstAt} (chỉ nhận ±5 phút quanh mốc giờ)
+            Check-in đầu tiên lúc {firstAt} (chỉ nhận từ 2h trước đến 10 phút
+            sau mốc giờ)
           </p>
         ) : null}
       </div>

@@ -49,20 +49,20 @@ public sealed class CheckInHandler(
         if (ch.Status != ChallengeStatus.Active)
             throw new BusinessRuleException("Kỳ thử thách không hoạt động hôm nay");
 
-        // DEADLINE: chỉ nhận check-in trong ±5 phút quanh mốc giờ
+        // DEADLINE: chỉ nhận check-in từ 2 giờ trước mốc đến 10 phút sau mốc
         // (tính trên DateTimeOffset để mốc 00:01 không tràn TimeOnly khi lùi cửa sổ sang ngày trước).
         if (activity.Type == ActivityType.Deadline && activity.DeadlineTime is TimeOnly dl)
         {
             var winStart = Domain.Services.ActivityEvaluator.ToInstant(today, dl, clock.LocalTimeZone)
-                .AddMinutes(-Domain.Services.ActivityEvaluator.DeadlineWindowMinutes);
+                .AddMinutes(-Domain.Services.ActivityEvaluator.DeadlineEarlyMinutes);
             var winEnd = Domain.Services.ActivityEvaluator.ToInstant(today, dl, clock.LocalTimeZone)
-                .AddMinutes(Domain.Services.ActivityEvaluator.DeadlineWindowMinutes);
+                .AddMinutes(Domain.Services.ActivityEvaluator.DeadlineLateMinutes);
             if (now < winStart)
                 throw new BusinessRuleException(
-                    $"Chưa đến giờ check-in '{activity.Name}': chỉ nhận trong khoảng {winStart:HH:mm}–{winEnd:HH:mm} (±{Domain.Services.ActivityEvaluator.DeadlineWindowMinutes} phút quanh mốc {dl:HH:mm})");
+                    $"Chưa đến giờ check-in '{activity.Name}': chỉ nhận trong khoảng {winStart:HH:mm}–{winEnd:HH:mm} (sớm nhất 2 giờ trước mốc {dl:HH:mm}, muộn nhất 10 phút sau)");
             if (now > winEnd)
                 throw new BusinessRuleException(
-                    $"Quá giờ check-in '{activity.Name}': chỉ nhận trong khoảng {winStart:HH:mm}–{winEnd:HH:mm} (±{Domain.Services.ActivityEvaluator.DeadlineWindowMinutes} phút quanh mốc {dl:HH:mm})");
+                    $"Quá giờ check-in '{activity.Name}': chỉ nhận trong khoảng {winStart:HH:mm}–{winEnd:HH:mm} (sớm nhất 2 giờ trước mốc {dl:HH:mm}, muộn nhất 10 phút sau)");
         }
 
         var intent = await db.UploadIntents.FirstOrDefaultAsync(i =>
@@ -94,7 +94,7 @@ public sealed class CheckInHandler(
         var isLate = false;
         if (activity.Type == ActivityType.Deadline && activity.DeadlineTime is TimeOnly t)
         {
-            // "Trễ" = sau mốc giờ (vẫn PASS nếu trong cửa sổ +5 phút).
+            // "Trễ" = sau mốc giờ (vẫn PASS nếu trong cửa sổ +10 phút).
             var deadline = Domain.Services.ActivityEvaluator.ToInstant(today, t, clock.LocalTimeZone);
             isLate = checkinAt > deadline;
         }

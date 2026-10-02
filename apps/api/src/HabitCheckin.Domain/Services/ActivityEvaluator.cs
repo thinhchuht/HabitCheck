@@ -12,8 +12,11 @@ public sealed record ActivityEvaluation(
 
 public static class ActivityEvaluator
 {
-    /// <summary>Cửa sổ check-in DEADLINE: chỉ nhận trong ±N phút quanh mốc giờ.</summary>
-    public const int DeadlineWindowMinutes = 5;
+    /// <summary>Cửa sổ check-in DEADLINE: sớm nhất N phút trước mốc giờ (2 giờ).</summary>
+    public const int DeadlineEarlyMinutes = 120;
+
+    /// <summary>Cửa sổ check-in DEADLINE: muộn nhất N phút sau mốc giờ (10 phút).</summary>
+    public const int DeadlineLateMinutes = 10;
 
     public static ActivityEvaluation Evaluate(Activity a, DateOnly date, IReadOnlyList<CheckIn> dayCheckins, TimeZoneInfo tz)
     {
@@ -27,7 +30,7 @@ public static class ActivityEvaluator
                     var first = valid.OrderBy(c => c.CheckinAt).FirstOrDefault();
                     if (first is null)
                         return new ActivityEvaluation(a.Id, false, rejectedOnly ? "REJECTED" : "MISSING", null, null);
-                    var limit = ToInstant(date, a.DeadlineTime!.Value.AddMinutes(DeadlineWindowMinutes), tz);
+                    var limit = ToInstant(date, a.DeadlineTime!.Value.AddMinutes(DeadlineLateMinutes), tz);
                     return first.CheckinAt <= limit
                         ? new ActivityEvaluation(a.Id, true, null, null, first.CheckinAt)
                         : new ActivityEvaluation(a.Id, false, "LATE", null, first.CheckinAt);

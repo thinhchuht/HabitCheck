@@ -27,11 +27,11 @@
 
 ### 1.2 Kiểu thời gian của hoạt động
 
-| Kiểu                    | Ý nghĩa                                                                          | Tham số                                                            | Điều kiện PASS                                                         |
-| ----------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| `DEADLINE` (mốc giờ)    | Phải check-in đúng một giờ nhất định. VD: Dậy sớm trước 06:00                    | `deadline_time` (HH:mm) — chỉ nhận **±5 phút** quanh mốc (cố định) | Có check-in trong khoảng `[deadline_time − 5, deadline_time + 5]` phút |
-| `DURATION` (thời lượng) | Hoạt động kéo dài một số phút, tick + chụp 1 ảnh khi làm xong. VD: Thể dục 1 giờ | `target_minutes` (thời lượng mô tả, VD 60 = 1 giờ)                 | Có ≥ 1 check-in hợp lệ trong ngày (tick + bằng chứng)                  |
-| `WINDOW` (khung giờ)    | Phải check-in trong khung giờ. VD: Uống nước 12:00–13:00                         | `window_start`, `window_end`                                       | Có check-in trong khung                                                |
+| Kiểu                    | Ý nghĩa                                                                          | Tham số                                                                        | Điều kiện PASS                                                           |
+| ----------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `DEADLINE` (mốc giờ)    | Phải check-in đúng một giờ nhất định. VD: Dậy sớm trước 06:00                    | `deadline_time` (HH:mm) — chỉ nhận **2 giờ trước – 10 phút sau** mốc (cố định) | Có check-in trong khoảng `[deadline_time − 2h, deadline_time + 10 phút]` |
+| `DURATION` (thời lượng) | Hoạt động kéo dài một số phút, tick + chụp 1 ảnh khi làm xong. VD: Thể dục 1 giờ | `target_minutes` (thời lượng mô tả, VD 60 = 1 giờ)                             | Có ≥ 1 check-in hợp lệ trong ngày (tick + bằng chứng)                    |
+| `WINDOW` (khung giờ)    | Phải check-in trong khung giờ. VD: Uống nước 12:00–13:00                         | `window_start`, `window_end`                                                   | Có check-in trong khung                                                  |
 
 ### 1.3 Bằng chứng (proof)
 
@@ -535,13 +535,13 @@ Base: `/api`, auth Bearer JWT, lỗi trả `ProblemDetails` (RFC 7807). OpenAPI 
 
 ### Check-in
 
-| Method | Path                                  | Mô tả                                                                                                   |
-| ------ | ------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| GET    | `/today?groupId=`                     | Hoạt động hôm nay + trạng thái, check-in trong ngày (groupId bắt buộc)                                  |
-| POST   | `/uploads/intent`                     | `{activityId, kind}` → chữ ký Cloudinary                                                                |
-| POST   | `/checkins`                           | `{activityId, intentId, publicId, note}` — DEADLINE: chỉ nhận trong ±5 phút quanh mốc giờ, khác thì 422 |
-| POST   | `/checkins/{id}/checkout`             | `{intentId, publicId}`                                                                                  |
-| GET    | `/checkins?userId=&date=&activityId=` | Lịch sử (cùng nhóm mới xem được)                                                                        |
+| Method | Path                                  | Mô tả                                                                                                           |
+| ------ | ------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| GET    | `/today?groupId=`                     | Hoạt động hôm nay + trạng thái, check-in trong ngày (groupId bắt buộc)                                          |
+| POST   | `/uploads/intent`                     | `{activityId, kind}` → chữ ký Cloudinary                                                                        |
+| POST   | `/checkins`                           | `{activityId, intentId, publicId, note}` — DEADLINE: chỉ nhận từ 2h trước đến 10 phút sau mốc giờ, khác thì 422 |
+| POST   | `/checkins/{id}/checkout`             | `{intentId, publicId}`                                                                                          |
+| GET    | `/checkins?userId=&date=&activityId=` | Lịch sử (cùng nhóm mới xem được)                                                                                |
 
 ### Bằng chứng (trang check-in — chỉ đọc)
 
@@ -630,14 +630,14 @@ Server đẩy về group:
 - Header: ngày, số hoạt động đã xong / tổng, **tiền phạt dự kiến hôm nay** (tính realtime).
 - **Cheat day**: nút "🎉 Cheat day hôm nay" (ẩn khi tuần này đã dùng hoặc hôm nay đã là cheat day); hôm nay là cheat day → banner xanh "Hôm nay là Cheat Day" + nút "Huỷ cheat day". Hoạt động hiển thị trung lập, phạt dự kiến 0đ.
 - Thẻ từng hoạt động:
-  - `DEADLINE`: chỉ nhận check-in trong **±5 phút** quanh mốc giờ (mở camera/chọn file): trước khung → "Chưa mở giờ check-in (HH:mm–HH:mm)" + nút disable; trong khung → đếm ngược (nút bật); sau khung → "ĐÃ QUÁ GIỜ" + disable.
+  - `DEADLINE`: chỉ nhận check-in từ **2 giờ trước đến 10 phút sau** mốc giờ (mở camera/chọn file): trước khung → "Chưa mở giờ check-in (HH:mm–HH:mm)" + nút disable; trong khung → đếm ngược (nút bật); sau khung → "ĐÃ QUÁ GIỜ" + disable.
   - `DURATION`: thời lượng mục tiêu (VD "60 phút"), nút **Hoàn thành** (tick) mở hộp thoại chụp ảnh; sau check-in hiện ✅ kèm giờ và ảnh đã nộp.
   - Hiển thị ảnh/video đã nộp.
 
 ### 7.3 Kỳ thử thách (thiết lập)
 
 - Chọn ngày bắt đầu / kết thúc (date range picker).
-- Form thêm hoạt động: tên, icon, kiểu thời gian, tham số, loại bằng chứng. `DEADLINE` chỉ đặt mốc giờ — cửa sổ check-in cố định ±5 phút (không còn ô "chậm thêm" `grace_minutes`).
+- Form thêm hoạt động: tên, icon, kiểu thời gian, tham số, loại bằng chứng. `DEADLINE` chỉ đặt mốc giờ — cửa sổ check-in cố định 2h trước – 10 phút sau mốc (không còn ô "chậm thêm" `grace_minutes`).
 - Xem trước bảng phạt của nhóm.
 - Badge "Sẽ khoá lúc 00:00 dd/MM" và hộp xác nhận khi DRAFT; khi ACTIVE hiển thị chế độ chỉ đọc 🔒.
 - Lịch sử các kỳ đã qua.
@@ -712,8 +712,11 @@ public sealed record ActivityEvaluation(Guid ActivityId, bool Passed, string? Re
 
 public static class ActivityEvaluator
 {
-    /// <summary>Cửa sổ check-in DEADLINE: chỉ nhận trong ±N phút quanh mốc giờ.</summary>
-    public const int DeadlineWindowMinutes = 5;
+    /// <summary>Cửa sổ check-in DEADLINE: sớm nhất N phút trước mốc giờ (2 giờ).</summary>
+    public const int DeadlineEarlyMinutes = 120;
+
+    /// <summary>Cửa sổ check-in DEADLINE: muộn nhất N phút sau mốc giờ (10 phút).</summary>
+    public const int DeadlineLateMinutes = 10;
 
     public static ActivityEvaluation Evaluate(Activity a, DateOnly date, IReadOnlyList<CheckIn> dayCheckins, TimeZoneInfo tz)
     {
@@ -726,7 +729,7 @@ public static class ActivityEvaluator
             {
                 var first = valid.MinBy(c => c.CheckinAt);
                 if (first is null) return new(a.Id, false, rejectedOnly ? "REJECTED" : "MISSING", null, null);
-                var limit = ToInstant(date, a.DeadlineTime!.Value.AddMinutes(DeadlineWindowMinutes), tz);
+                var limit = ToInstant(date, a.DeadlineTime!.Value.AddMinutes(DeadlineLateMinutes), tz);
                 return first.CheckinAt <= limit
                     ? new(a.Id, true, null, null, first.CheckinAt)
                     : new(a.Id, false, "LATE", null, first.CheckinAt);
@@ -796,18 +799,18 @@ public async Task<CheckInDto> Handle(CheckInCommand cmd, CancellationToken ct)
         today < activity.Challenge.StartDate || today > activity.Challenge.EndDate)
         throw new BusinessRuleException("Challenge không hoạt động hôm nay");
 
-    // DEADLINE: chỉ nhận check-in trong ±5 phút quanh mốc giờ
+    // DEADLINE: chỉ nhận check-in từ 2 giờ trước mốc đến 10 phút sau mốc
     // (tính trên DateTimeOffset để mốc 00:01 không tràn TimeOnly khi lùi cửa sổ sang ngày trước).
     if (activity.Type == ActivityType.Deadline && activity.DeadlineTime is TimeOnly dl)
     {
         var winStart = Domain.Services.ActivityEvaluator.ToInstant(today, dl, clock.LocalTimeZone)
-            .AddMinutes(-Domain.Services.ActivityEvaluator.DeadlineWindowMinutes);
+            .AddMinutes(-Domain.Services.ActivityEvaluator.DeadlineEarlyMinutes);
         var winEnd = Domain.Services.ActivityEvaluator.ToInstant(today, dl, clock.LocalTimeZone)
-            .AddMinutes(Domain.Services.ActivityEvaluator.DeadlineWindowMinutes);
+            .AddMinutes(Domain.Services.ActivityEvaluator.DeadlineLateMinutes);
         if (now < winStart)
-            throw new BusinessRuleException($"Chưa đến giờ check-in '{activity.Name}': chỉ nhận trong khoảng {winStart:HH:mm}–{winEnd:HH:mm} (±{Domain.Services.ActivityEvaluator.DeadlineWindowMinutes} phút quanh mốc {dl:HH:mm})");
+            throw new BusinessRuleException($"Chưa đến giờ check-in '{activity.Name}': chỉ nhận trong khoảng {winStart:HH:mm}–{winEnd:HH:mm} (sớm nhất 2 giờ trước mốc {dl:HH:mm}, muộn nhất 10 phút sau)");
         if (now > winEnd)
-            throw new BusinessRuleException($"Quá giờ check-in '{activity.Name}': chỉ nhận trong khoảng {winStart:HH:mm}–{winEnd:HH:mm} (±{Domain.Services.ActivityEvaluator.DeadlineWindowMinutes} phút quanh mốc {dl:HH:mm})");
+            throw new BusinessRuleException($"Quá giờ check-in '{activity.Name}': chỉ nhận trong khoảng {winStart:HH:mm}–{winEnd:HH:mm} (sớm nhất 2 giờ trước mốc {dl:HH:mm}, muộn nhất 10 phút sau)");
     }
 
     var intent = await _db.UploadIntents.SingleOrDefaultAsync(i =>

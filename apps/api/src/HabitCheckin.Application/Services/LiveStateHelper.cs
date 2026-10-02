@@ -27,7 +27,7 @@ public static class LiveStateHelper
         bool over = a.Type switch
         {
             ActivityType.Deadline => a.DeadlineTime is TimeOnly t
-                && now >= ActivityEvaluator.ToInstant(today, t, tz).AddMinutes(ActivityEvaluator.DeadlineWindowMinutes),
+                && now >= ActivityEvaluator.ToInstant(today, t, tz).AddMinutes(ActivityEvaluator.DeadlineLateMinutes),
             ActivityType.Window => a.WindowEnd is TimeOnly w
                 && now >= ActivityEvaluator.ToInstant(today, w, tz),
             _ => false

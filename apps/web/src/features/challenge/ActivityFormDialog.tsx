@@ -283,8 +283,8 @@ export function ActivityFormDialog({
                 {...register("deadlineTime")}
               />
               <p className="text-xs text-slate-400">
-                Chỉ nhận check-in trong ±5 phút quanh mốc giờ (VD: hạn 6:00 →
-                check-in được từ 5:55 đến 6:05).
+                Chỉ nhận check-in từ 2 giờ trước đến 10 phút sau mốc giờ (VD:
+                hạn 6:00 → check-in được từ 4:00 đến 6:10).
               </p>
               {fieldError("deadlineTime")}
             </div>

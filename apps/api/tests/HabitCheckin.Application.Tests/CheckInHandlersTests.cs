@@ -62,7 +62,8 @@ public class CheckInHandlersTests
             Status = status,
             CreatedAt = Now
         };
-        // Mốc 08:00 VN (khung ±5 phút: 07:55–08:05) — giờ đồng hồ giả 08:00 VN nằm trong khung.
+        // Mốc 08:00 VN (khung 06:00–08:10: sớm nhất 2h trước, muộn nhất 10 phút sau)
+        // — giờ đồng hồ giả 08:00 VN nằm trong khung.
         var deadlineActivity = new Activity
         {
             ChallengeId = challenge.Id,
@@ -187,8 +188,8 @@ public class CheckInHandlersTests
     public async Task CheckIn_Deadline_BeforeWindow_ThrowsBusinessRule()
     {
         var tx = await CreateAsync();
-        // Mốc 09:00 VN → khung 08:55–09:05; đồng hồ 08:00 VN → chưa mở.
-        tx.DeadlineActivity.DeadlineTime = new TimeOnly(9, 0);
+        // Mốc 11:00 VN → khung 09:00–11:10; đồng hồ 08:00 VN → chưa mở (sớm hơn 2h).
+        tx.DeadlineActivity.DeadlineTime = new TimeOnly(11, 0);
         await tx.Db.SaveChangesAsync();
 
         var act = () => CheckInHandler(tx).Handle(
@@ -202,7 +203,7 @@ public class CheckInHandlersTests
     public async Task CheckIn_Deadline_AfterWindow_ThrowsBusinessRule()
     {
         var tx = await CreateAsync();
-        // Mốc 07:00 VN → khung 06:55–07:05; đồng hồ 08:00 VN → quá khung.
+        // Mốc 07:00 VN → khung 05:00–07:10; đồng hồ 08:00 VN → quá khung (muộn hơn 10 phút).
         tx.DeadlineActivity.DeadlineTime = new TimeOnly(7, 0);
         await tx.Db.SaveChangesAsync();
 

@@ -61,10 +61,10 @@ public class ActivityEvaluatorTests
     [Fact]
     public void Deadline_AfterDeadlineButInsideWindow_Passes()
     {
-        // Check-in sau mốc 6:00 nhưng còn trong cửa sổ +5 phút (6:03) → PASS.
+        // Check-in sau mốc 6:00 nhưng còn trong cửa sổ +10 phút (6:08) → PASS.
         var a = NewActivity(ActivityType.Deadline, deadline: new TimeOnly(6, 0));
         var result = ActivityEvaluator.Evaluate(a, Date,
-            [NewCheckin(Local(6, 3), CheckInStatus.Completed)], Tz);
+            [NewCheckin(Local(6, 8), CheckInStatus.Completed)], Tz);
 
         result.Passed.Should().BeTrue();
     }
@@ -72,10 +72,10 @@ public class ActivityEvaluatorTests
     [Fact]
     public void Deadline_AfterWindow_IsLate()
     {
-        // 6:06 > mốc 6:00 + 5 phút → LATE.
+        // 6:11 > mốc 6:00 + 10 phút → LATE.
         var a = NewActivity(ActivityType.Deadline, deadline: new TimeOnly(6, 0));
         var result = ActivityEvaluator.Evaluate(a, Date,
-            [NewCheckin(Local(6, 6), CheckInStatus.Completed)], Tz);
+            [NewCheckin(Local(6, 11), CheckInStatus.Completed)], Tz);
 
         result.Passed.Should().BeFalse();
         result.Reason.Should().Be("LATE");

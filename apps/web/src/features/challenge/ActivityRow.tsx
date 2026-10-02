@@ -10,7 +10,7 @@ import type { ActivityDto } from "@/types/api";
 export function activitySummary(a: ActivityDto): string {
   switch (a.type) {
     case "DEADLINE":
-      return `trước ${fmtTimeOnly(a.deadlineTime)} (chỉ nhận ±5 phút)`;
+      return `trước ${fmtTimeOnly(a.deadlineTime)} (chỉ nhận 2h trước – 10 phút sau)`;
     case "DURATION":
       return `${a.targetMinutes ?? 0} phút/ngày — tick + 1 ảnh`;
     case "WINDOW":
