@@ -32,8 +32,8 @@ public static class DependencyInjection
 
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        // EF Core
-        var conn = configuration.GetConnectionString("Default");
+        // EF Core — chuẩn hoá connection string (Render trả dạng postgresql:// URI)
+        var conn = PostgresConnectionString.Normalize(configuration.GetConnectionString("Default"));
         services.AddDbContext<AppDbContext>(opt => opt.UseNpgsql(conn));
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
 

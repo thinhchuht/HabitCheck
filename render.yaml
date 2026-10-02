@@ -13,7 +13,8 @@ services:
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
-      # Render PG trả connection string dạng URI (postgresql://...?sslmode=require) — Npgsql đọc được.
+      # Render PG trả connection string dạng URI (postgresql://...?sslmode=require)
+      # — app tự chuẩn hoá về keyword=value (PostgresConnectionString.Normalize).
       - key: ConnectionStrings__Default
         fromDatabase:
           name: habit-db
