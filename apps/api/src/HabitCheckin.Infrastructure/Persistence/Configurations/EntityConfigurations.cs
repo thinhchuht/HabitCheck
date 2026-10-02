@@ -76,10 +76,12 @@ internal sealed class ActivityConfiguration : IEntityTypeConfiguration<Activity>
 {
     public void Configure(EntityTypeBuilder<Activity> b)
     {
+        // DURATION không cần TargetMinutes nếu có Unit — hoạt động đơn vị tự chọn
+        // (VD "10000 bước"): tick + 1 ảnh trong ngày, không có tham số thời gian.
         b.ToTable("activities", t => t.HasCheckConstraint(
             "chk_activity_type_params",
             "(\"Type\" = 'Deadline' AND \"DeadlineTime\" IS NOT NULL) OR " +
-            "(\"Type\" = 'Duration' AND \"TargetMinutes\" IS NOT NULL AND \"TargetMinutes\" > 0) OR " +
+            "(\"Type\" = 'Duration' AND ((\"TargetMinutes\" IS NOT NULL AND \"TargetMinutes\" > 0) OR \"Unit\" IS NOT NULL)) OR " +
             "(\"Type\" = 'Window' AND \"WindowStart\" IS NOT NULL AND \"WindowEnd\" IS NOT NULL AND \"WindowEnd\" > \"WindowStart\")"));
         b.HasKey(x => x.Id);
         b.Property(x => x.Name).HasMaxLength(200).IsRequired();

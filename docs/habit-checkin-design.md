@@ -27,11 +27,13 @@
 
 ### 1.2 Kiểu thời gian của hoạt động
 
-| Kiểu                    | Ý nghĩa                                                                          | Tham số                                                                        | Điều kiện PASS                                                           |
-| ----------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| `DEADLINE` (mốc giờ)    | Phải check-in đúng một giờ nhất định. VD: Dậy sớm trước 06:00                    | `deadline_time` (HH:mm) — chỉ nhận **2 giờ trước – 10 phút sau** mốc (cố định) | Có check-in trong khoảng `[deadline_time − 2h, deadline_time + 10 phút]` |
-| `DURATION` (thời lượng) | Hoạt động kéo dài một số phút, tick + chụp 1 ảnh khi làm xong. VD: Thể dục 1 giờ | `target_minutes` (thời lượng mô tả, VD 60 = 1 giờ)                             | Có ≥ 1 check-in hợp lệ trong ngày (tick + bằng chứng)                    |
-| `WINDOW` (khung giờ)    | Phải check-in trong khung giờ. VD: Uống nước 12:00–13:00                         | `window_start`, `window_end`                                                   | Có check-in trong khung                                                  |
+| Kiểu                    | Ý nghĩa                                                                          | Tham số                                                                                                                      | Điều kiện PASS                                                           |
+| ----------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `DEADLINE` (mốc giờ)    | Phải check-in đúng một giờ nhất định. VD: Dậy sớm trước 06:00                    | `deadline_time` (HH:mm) — chỉ nhận **2 giờ trước – 10 phút sau** mốc (cố định)                                               | Có check-in trong khoảng `[deadline_time − 2h, deadline_time + 10 phút]` |
+| `DURATION` (thời lượng) | Hoạt động kéo dài một số phút, tick + chụp 1 ảnh khi làm xong. VD: Thể dục 1 giờ | `target_minutes` (thời lượng mô tả, VD 60 = 1 giờ) **hoặc** đơn vị tự chọn `unit` (VD "10000 bước") — hai loại thay thế nhau | Có ≥ 1 check-in hợp lệ trong ngày (tick + bằng chứng)                    |
+| `WINDOW` (khung giờ)    | Phải check-in trong khung giờ. VD: Uống nước 12:00–13:00                         | `window_start`, `window_end`                                                                                                 | Có check-in trong khung                                                  |
+
+- **Đơn vị tự chọn** (VD "10000 bước", "5 km"): hoạt động lưu dạng `DURATION` với `unit` text và `target_minutes = NULL` — **không cần kiểu thời gian / tham số giờ**, tick + chụp 1 ảnh bất kỳ lúc nào trong ngày là đạt. `target_minutes` chỉ mang tính mô tả, không dùng để chấm điểm.
 
 ### 1.3 Bằng chứng (proof)
 
@@ -330,7 +332,7 @@ CREATE TABLE activities (
   name                text NOT NULL,
   description         text,
   icon                text,
-  unit                text,           -- đơn vị tự chọn (VD "10000 bước", "5 km"); null = đơn vị thời gian
+  unit                text,           -- đơn vị tự chọn (VD "10000 bước", "5 km"); null = đơn vị thời gian; có unit → không cần target_minutes
   type                activity_type NOT NULL,
   deadline_time       time,          -- DEADLINE
   grace_minutes       int NOT NULL DEFAULT 0,   -- không còn dùng (quy tắc ±5 phút cố định), giữ cột DB
@@ -342,7 +344,7 @@ CREATE TABLE activities (
   sort_order          int NOT NULL DEFAULT 0,
   CHECK (
     (type = 'DEADLINE' AND deadline_time IS NOT NULL) OR
-    (type = 'DURATION' AND target_minutes > 0) OR
+    (type = 'DURATION' AND (target_minutes > 0 OR unit IS NOT NULL)) OR
     (type = 'WINDOW'   AND window_start IS NOT NULL AND window_end > window_start)
   )
 );
@@ -640,7 +642,7 @@ Server đẩy về group:
 ### 7.3 Kỳ thử thách (thiết lập)
 
 - Chọn ngày bắt đầu / kết thúc — **ngày bắt đầu phải là ngày mai trở đi** (date picker có min = ngày mai).
-- Form thêm hoạt động: tên, **đơn vị — 2 kiểu thay thế nhau: "Thời gian"** (đơn vị theo kiểu thời gian, không lưu text riêng) **hoặc "Tự chọn"** (text tự do, VD "10000 bước", "5 km"), icon, kiểu thời gian, tham số, loại bằng chứng. `DEADLINE` chỉ đặt mốc giờ — cửa sổ check-in cố định 2h trước – 10 phút sau mốc (không còn ô "chậm thêm" `grace_minutes`).
+- Form thêm hoạt động: tên, **đơn vị — 2 kiểu thay thế nhau: "Thời gian"** (đơn vị theo kiểu thời gian, không lưu text riêng) **hoặc "Tự chọn"** (text tự do, VD "10000 bước", "5 km" — **không cần chọn kiểu thời gian / tham số giờ**, lưu dạng `DURATION` với `target_minutes = NULL`, chấm tick + 1 ảnh trong ngày), icon, kiểu thời gian, tham số, loại bằng chứng. `DEADLINE` chỉ đặt mốc giờ — cửa sổ check-in cố định 2h trước – 10 phút sau mốc (không còn ô "chậm thêm" `grace_minutes`).
 - Xem trước bảng phạt của nhóm.
 - Badge "Sẽ khoá lúc 00:00 dd/MM" và hộp xác nhận khi DRAFT; khi ACTIVE hiển thị chế độ chỉ đọc 🔒.
 - Lịch sử các kỳ đã qua.

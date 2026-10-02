@@ -20,9 +20,10 @@ function statusVariant(
   return "secondary";
 }
 
-/** Body for DURATION activities (VD: "thể dục 1 giờ"): tick + 1 ảnh trong ngày. */
+/** Body for DURATION activities (VD: "thể dục 1 giờ" hoặc đơn vị "10000 bước"): tick + 1 ảnh trong ngày. */
 export function DurationCard({ item }: DurationCardProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const unit = item.activity.unit;
   const target = item.activity.targetMinutes ?? 0;
 
   const checkins = [...item.checkins].sort((a, b) =>
@@ -44,9 +45,9 @@ export function DurationCard({ item }: DurationCardProps) {
         <p
           className={`text-sm ${done ? "text-emerald-800" : "text-slate-600"}`}
         >
-          Thời lượng mục tiêu:{" "}
+          {unit ? "Mục tiêu: " : "Thời lượng mục tiêu: "}
           <span className="font-semibold text-slate-900">
-            {formatMinutesVN(target)}
+            {unit ?? formatMinutesVN(target)}
           </span>
         </p>
         {firstAt ? (

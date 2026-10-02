@@ -12,7 +12,10 @@ export function activitySummary(a: ActivityDto): string {
     case "DEADLINE":
       return `trước ${fmtTimeOnly(a.deadlineTime)} (chỉ nhận 2h trước – 10 phút sau)`;
     case "DURATION":
-      return `${a.targetMinutes ?? 0} phút/ngày — tick + 1 ảnh`;
+      // Đơn vị tự chọn (VD "10000 bước") ưu tiên; không có unit → thời lượng phút.
+      return a.unit
+        ? `${a.unit}/ngày — tick + 1 ảnh`
+        : `${a.targetMinutes ?? 0} phút/ngày — tick + 1 ảnh`;
     case "WINDOW":
       return `khung ${fmtTimeOnly(a.windowStart)} – ${fmtTimeOnly(a.windowEnd)}`;
   }

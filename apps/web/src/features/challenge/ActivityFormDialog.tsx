@@ -30,6 +30,7 @@ const activitySchema = z
     description: z.string().max(300, "Mô tả tối đa 300 ký tự"),
     icon: z.string().max(8, "Icon tối đa 8 ký tự"),
     unit: z.string().max(50, "Đơn vị tối đa 50 ký tự"),
+    unitKind: z.enum(["TIME", "CUSTOM"]),
     type: z.enum(["DEADLINE", "DURATION", "WINDOW"]),
     deadlineTime: z.string(),
     targetMinutes: z.string(),
@@ -37,6 +38,18 @@ const activitySchema = z
     windowEnd: z.string(),
   })
   .superRefine((v, ctx) => {
+    // Tự chọn đơn vị: chỉ cần đơn vị — không có kiểu thời gian / tham số giờ.
+    if (v.unitKind === "CUSTOM") {
+      if (!v.unit.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["unit"],
+          message: "Vui lòng nhập đơn vị (VD: 10000 bước, 5 km)",
+        });
+      }
+      return;
+    }
+
     if (v.type === "DEADLINE" && !v.deadlineTime) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -82,9 +95,6 @@ const activitySchema = z
   });
 
 type ActivityFormValues = z.infer<typeof activitySchema>;
-
-/** 2 kiểu đơn vị thay thế nhau: thời gian (theo kiểu thời gian) hoặc tự chọn đơn vị. */
-type UnitKind = "TIME" | "CUSTOM";
 
 function toTimeInput(v: string | null): string {
   return v ? v.slice(0, 5) : "";
@@ -141,27 +151,35 @@ function Time24Selects({
   );
 }
 
-function toInput(v: ActivityFormValues, unitKind: UnitKind): ActivityInput {
-  const input: ActivityInput = {
+function toInput(v: ActivityFormValues): ActivityInput {
+  const base = {
     name: v.name.trim(),
     description: v.description.trim() || null,
     icon: v.icon.trim() || null,
-    // Kiểu thời gian → không lưu đơn vị riêng; kiểu tự chọn → lưu text.
-    unit: unitKind === "CUSTOM" ? v.unit.trim() || null : null,
-    type: v.type,
     // Video không còn hỗ trợ — bằng chứng check-in chỉ là ảnh.
-    proofType: "PHOTO",
+    proofType: "PHOTO" as const,
   };
-  if (v.type === "DEADLINE") {
-    input.deadlineTime = v.deadlineTime;
-  } else if (v.type === "DURATION") {
-    input.targetMinutes =
-      v.targetMinutes === "" ? null : Number(v.targetMinutes);
-  } else {
-    input.windowStart = v.windowStart;
-    input.windowEnd = v.windowEnd;
+  // Tự chọn đơn vị: luôn lưu dạng DURATION (tick + 1 ảnh/ngày), không giờ.
+  if (v.unitKind === "CUSTOM") {
+    return { ...base, type: "DURATION", unit: v.unit.trim() };
   }
-  return input;
+  // Kiểu thời gian → không lưu đơn vị riêng (thời gian do kiểu/tham số mang).
+  if (v.type === "DEADLINE") {
+    return { ...base, type: "DEADLINE", deadlineTime: v.deadlineTime };
+  }
+  if (v.type === "DURATION") {
+    return {
+      ...base,
+      type: "DURATION",
+      targetMinutes: v.targetMinutes === "" ? null : Number(v.targetMinutes),
+    };
+  }
+  return {
+    ...base,
+    type: "WINDOW",
+    windowStart: v.windowStart,
+    windowEnd: v.windowEnd,
+  };
 }
 
 interface ActivityFormDialogProps {
@@ -181,7 +199,6 @@ export function ActivityFormDialog({
   const queryClient = useQueryClient();
   const groupId = useAppStore((s) => s.selectedGroupId);
   const [formError, setFormError] = useState<string | null>(null);
-  const [unitKind, setUnitKind] = useState<UnitKind>("TIME");
 
   const isEdit = activity != null;
 
@@ -191,6 +208,7 @@ export function ActivityFormDialog({
     handleSubmit,
     watch,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<ActivityFormValues>({
     resolver: zodResolver(activitySchema),
@@ -199,6 +217,7 @@ export function ActivityFormDialog({
       description: "",
       icon: "",
       unit: "",
+      unitKind: "TIME",
       type: "DEADLINE",
       deadlineTime: "",
       targetMinutes: "",
@@ -210,7 +229,6 @@ export function ActivityFormDialog({
   useEffect(() => {
     if (open) {
       setFormError(null);
-      setUnitKind(activity?.unit ? "CUSTOM" : "TIME");
       reset(
         activity
           ? {
@@ -218,6 +236,7 @@ export function ActivityFormDialog({
               description: activity.description ?? "",
               icon: activity.icon ?? "",
               unit: activity.unit ?? "",
+              unitKind: activity.unit ? "CUSTOM" : "TIME",
               type: activity.type,
               deadlineTime: toTimeInput(activity.deadlineTime),
               targetMinutes:
@@ -232,6 +251,7 @@ export function ActivityFormDialog({
               description: "",
               icon: "",
               unit: "",
+              unitKind: "TIME",
               type: "DEADLINE",
               deadlineTime: "",
               targetMinutes: "",
@@ -242,6 +262,7 @@ export function ActivityFormDialog({
     }
   }, [open, activity, reset]);
 
+  const unitKind = watch("unitKind");
   const type = watch("type");
 
   const mutation = useMutation({
@@ -265,7 +286,7 @@ export function ActivityFormDialog({
 
   const onSubmit = handleSubmit((values) => {
     setFormError(null);
-    mutation.mutate(toInput(values, unitKind));
+    mutation.mutate(toInput(values));
   });
 
   const fieldError = (key: keyof ActivityFormValues) =>
@@ -303,7 +324,7 @@ export function ActivityFormDialog({
                 type="button"
                 size="sm"
                 variant={unitKind === "TIME" ? "default" : "outline"}
-                onClick={() => setUnitKind("TIME")}
+                onClick={() => setValue("unitKind", "TIME")}
               >
                 ⏱ Thời gian
               </Button>
@@ -311,7 +332,7 @@ export function ActivityFormDialog({
                 type="button"
                 size="sm"
                 variant={unitKind === "CUSTOM" ? "default" : "outline"}
-                onClick={() => setUnitKind("CUSTOM")}
+                onClick={() => setValue("unitKind", "CUSTOM")}
               >
                 ✏️ Tự chọn đơn vị
               </Button>
@@ -330,8 +351,8 @@ export function ActivityFormDialog({
                   {...register("unit")}
                 />
                 <p className="text-xs text-slate-400">
-                  Ghi chú mục tiêu hiển thị kèm hoạt động, VD: đi 10000 bước,
-                  chạy 5 km.
+                  Không cần chọn kiểu thời gian / giờ — chấm kiểu thời lượng:
+                  tick + chụp 1 ảnh trong ngày là đạt.
                 </p>
                 {fieldError("unit")}
               </>
@@ -339,7 +360,9 @@ export function ActivityFormDialog({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
+            <div
+              className={`space-y-2 ${unitKind === "CUSTOM" ? "col-span-2" : ""}`}
+            >
               <Label htmlFor="act-icon">Icon (emoji)</Label>
               <Input
                 id="act-icon"
@@ -349,20 +372,24 @@ export function ActivityFormDialog({
               />
               {fieldError("icon")}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="act-type">Kiểu thời gian *</Label>
-              <select
-                id="act-type"
-                className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
-                {...register("type")}
-              >
-                <option value="DEADLINE">
-                  Giờ chính xác (VD: dậy đúng 6:00)
-                </option>
-                <option value="DURATION">Thời lượng (VD: thể dục 1 giờ)</option>
-                <option value="WINDOW">Khung giờ (WINDOW)</option>
-              </select>
-            </div>
+            {unitKind === "TIME" ? (
+              <div className="space-y-2">
+                <Label htmlFor="act-type">Kiểu thời gian *</Label>
+                <select
+                  id="act-type"
+                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+                  {...register("type")}
+                >
+                  <option value="DEADLINE">
+                    Giờ chính xác (VD: dậy đúng 6:00)
+                  </option>
+                  <option value="DURATION">
+                    Thời lượng (VD: thể dục 1 giờ)
+                  </option>
+                  <option value="WINDOW">Khung giờ (WINDOW)</option>
+                </select>
+              </div>
+            ) : null}
           </div>
 
           <div className="space-y-2">
@@ -376,7 +403,7 @@ export function ActivityFormDialog({
             {fieldError("description")}
           </div>
 
-          {type === "DEADLINE" ? (
+          {unitKind === "TIME" && type === "DEADLINE" ? (
             <div className="space-y-2">
               <Label htmlFor="act-deadline">Giờ hạn *</Label>
               <Controller
@@ -399,7 +426,7 @@ export function ActivityFormDialog({
             </div>
           ) : null}
 
-          {type === "DURATION" ? (
+          {unitKind === "TIME" && type === "DURATION" ? (
             <div className="space-y-2">
               <Label htmlFor="act-target">Thời lượng (phút) *</Label>
               <Input
@@ -417,7 +444,7 @@ export function ActivityFormDialog({
             </div>
           ) : null}
 
-          {type === "WINDOW" ? (
+          {unitKind === "TIME" && type === "WINDOW" ? (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="act-win-start">Bắt đầu *</Label>

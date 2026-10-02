@@ -19,8 +19,11 @@ public sealed class ActivityInputValidator : AbstractValidator<ActivityInput>
             .When(x => x.Unit is not null);
         RuleFor(x => x.DeadlineTime).NotNull().WithMessage("Thiếu mốc giờ deadline")
             .When(x => x.Type == ActivityType.Deadline);
-        RuleFor(x => x.TargetMinutes).GreaterThan(0).WithMessage("Mục tiêu phút phải > 0")
-            .When(x => x.Type == ActivityType.Duration);
+        // DURATION: cần thời lượng (phút > 0) HOẶC đơn vị tự chọn (VD "10000 bước").
+        RuleFor(x => x.TargetMinutes)
+            .GreaterThan(0)
+            .WithMessage("Cần thời lượng (phút > 0) hoặc nhập đơn vị tự chọn")
+            .When(x => x.Type == ActivityType.Duration && string.IsNullOrWhiteSpace(x.Unit));
         RuleFor(x => x.WindowStart).NotNull().WithMessage("Thiếu giờ bắt đầu khung")
             .When(x => x.Type == ActivityType.Window);
         RuleFor(x => x.WindowEnd).NotNull().WithMessage("Thiếu giờ kết thúc khung")
