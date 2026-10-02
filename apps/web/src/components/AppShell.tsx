@@ -5,6 +5,7 @@ import {
   Flame,
   History,
   LogOut,
+  MoreHorizontal,
   Shield,
   ShieldCheck,
   Target,
@@ -13,12 +14,18 @@ import {
   UsersRound,
   Wallet,
 } from "lucide-react";
-import { useEffect } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { authApi } from "@/api/auth";
 import { meApi } from "@/api/me";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -171,8 +178,18 @@ export function AppShell() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
+  // Menu "Thêm" của tab bar mobile: chứa đổi nhóm + các trang còn lại
+  // (tab bar chỉ để vừa 5 nút trên màn hình hẹp).
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const navItems = user?.isAdmin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
+  const extraNavItems = navItems.slice(4);
+  const location = useLocation();
+
+  // Đóng menu "Thêm" khi điều hướng (VD bấm "Đổi nhóm" → /onboarding).
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [location.pathname]);
 
   // Sync user từ server mỗi lần mở app: user trong store persist có thể lỗi thời
   // (avatar/tên đổi từ thiết bị khác) → gây hiện tượng avatar "lúc có lúc không".
@@ -250,20 +267,20 @@ export function AppShell() {
         <UserMenu compact />
       </header>
 
-      <main className="px-4 py-6 md:ml-64 md:px-8 md:py-8">
-        <div className="mx-auto w-full max-w-6xl pb-20 md:pb-0">
+      <main className="px-4 py-5 md:ml-64 md:px-8 md:py-8">
+        <div className="mx-auto w-full max-w-6xl pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
           <Outlet />
         </div>
       </main>
 
-      {/* Mobile bottom tab bar (first 4 items) */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-slate-200 bg-white/95 backdrop-blur md:hidden">
+      {/* Mobile bottom tab bar: 4 trang chính + "Thêm" (đổi nhóm, trang còn lại) */}
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
         {NAV_ITEMS.slice(0, 4).map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
-              `flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${
+              `flex min-h-14 flex-col items-center justify-center gap-0.5 py-1.5 text-[11px] font-medium ${
                 isActive ? "text-indigo-600" : "text-slate-500"
               }`
             }
@@ -272,7 +289,50 @@ export function AppShell() {
             {label}
           </NavLink>
         ))}
+        <button
+          type="button"
+          onClick={() => setMoreOpen(true)}
+          className={`flex min-h-14 flex-col items-center justify-center gap-0.5 py-1.5 text-[11px] font-medium ${
+            extraNavItems.some((i) => location.pathname.startsWith(i.to))
+              ? "text-indigo-600"
+              : "text-slate-500"
+          }`}
+        >
+          <MoreHorizontal className="h-5 w-5" />
+          Thêm
+        </button>
       </nav>
+
+      {/* Menu mobile: đổi nhóm + các trang không nằm trong tab bar */}
+      <Dialog open={moreOpen} onOpenChange={setMoreOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Menu</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <GroupSwitcher />
+            <nav className="space-y-1">
+              {extraNavItems.map(({ to, label, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  onClick={() => setMoreOpen(false)}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${
+                      isActive
+                        ? "bg-indigo-50 font-semibold text-indigo-700"
+                        : "font-medium text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
+                    }`
+                  }
+                >
+                  <Icon className="h-5 w-5 shrink-0 text-slate-400" />
+                  {label}
+                </NavLink>
+              ))}
+            </nav>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

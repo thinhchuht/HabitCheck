@@ -115,7 +115,7 @@ export function LoginPage() {
         </div>
 
         <Card className="border-slate-200/70 shadow-xl shadow-slate-900/5">
-          <CardContent className="flex flex-col items-center gap-4 p-8">
+          <CardContent className="flex flex-col items-center gap-4 p-5 sm:p-8">
             {busy ? (
               <p className="py-4 text-sm text-slate-500">Đang đăng nhập…</p>
             ) : (

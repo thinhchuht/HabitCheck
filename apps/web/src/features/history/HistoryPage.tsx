@@ -246,51 +246,55 @@ export function HistoryPage() {
         ) : null}
       </PageHeader>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <label
-          htmlFor="history-from"
-          className="text-sm font-medium text-slate-600"
-        >
-          Từ:
-        </label>
-        <input
-          id="history-from"
-          type="date"
-          value={from}
-          max={to}
-          onChange={(e) =>
-            e.target.value
-              ? setFrom(e.target.value <= to ? e.target.value : to)
-              : null
-          }
-          className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800"
-        />
-        <label
-          htmlFor="history-to"
-          className="text-sm font-medium text-slate-600"
-        >
-          Đến:
-        </label>
-        <input
-          id="history-to"
-          type="date"
-          value={to}
-          min={from}
-          max={today}
-          onChange={(e) =>
-            e.target.value
-              ? setTo(e.target.value >= from ? e.target.value : from)
-              : null
-          }
-          className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800"
-        />
-        <div className="flex gap-1.5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:flex lg:items-end">
+        <div className="space-y-1.5">
+          <label
+            htmlFor="history-from"
+            className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+          >
+            Từ
+          </label>
+          <input
+            id="history-from"
+            type="date"
+            value={from}
+            max={to}
+            onChange={(e) =>
+              e.target.value
+                ? setFrom(e.target.value <= to ? e.target.value : to)
+                : null
+            }
+            className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label
+            htmlFor="history-to"
+            className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+          >
+            Đến
+          </label>
+          <input
+            id="history-to"
+            type="date"
+            value={to}
+            min={from}
+            max={today}
+            onChange={(e) =>
+              e.target.value
+                ? setTo(e.target.value >= from ? e.target.value : from)
+                : null
+            }
+            className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800"
+          />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
           {presets.map((p) => (
             <button
               key={p.label}
               type="button"
               onClick={p.apply}
-              className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
+              className="h-11 rounded-full border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
             >
               {p.label}
             </button>
