@@ -110,8 +110,7 @@ export function LoginPage() {
             Habit <span className="text-indigo-600">Check-in</span>
           </h1>
           <p className="text-center text-sm text-slate-500">
-            Theo dõi thói quen mỗi ngày, check-in bằng ảnh/video, cùng nhóm chịu
-            phạt.
+            Theo dõi thói quen mỗi ngày, check-in bằng ảnh, cùng nhóm chịu phạt.
           </p>
         </div>
 

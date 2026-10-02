@@ -10,6 +10,8 @@ public class Activity
     public string Name { get; set; } = null!;
     public string? Description { get; set; }
     public string? Icon { get; set; }
+    /// <summary>Đơn vị/mục tiêu tự do do user điền (VD: "10000 bước", "5 km").</summary>
+    public string? Unit { get; set; }
     public ActivityType Type { get; set; }
 
     public TimeOnly? DeadlineTime { get; set; }

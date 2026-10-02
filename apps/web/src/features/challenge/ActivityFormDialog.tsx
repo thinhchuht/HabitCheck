@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { challengesApi } from "@/api/challenges";
@@ -29,12 +29,12 @@ const activitySchema = z
       .max(100, "Tối đa 100 ký tự"),
     description: z.string().max(300, "Mô tả tối đa 300 ký tự"),
     icon: z.string().max(8, "Icon tối đa 8 ký tự"),
+    unit: z.string().max(50, "Đơn vị tối đa 50 ký tự"),
     type: z.enum(["DEADLINE", "DURATION", "WINDOW"]),
     deadlineTime: z.string(),
     targetMinutes: z.string(),
     windowStart: z.string(),
     windowEnd: z.string(),
-    proofType: z.enum(["PHOTO", "VIDEO", "ANY"]),
   })
   .superRefine((v, ctx) => {
     if (v.type === "DEADLINE" && !v.deadlineTime) {
@@ -87,13 +87,66 @@ function toTimeInput(v: string | null): string {
   return v ? v.slice(0, 5) : "";
 }
 
+const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+const MINUTES = Array.from({ length: 60 }, (_, i) =>
+  String(i).padStart(2, "0"),
+);
+
+/** Chọn giờ theo khung 24h (00–23) + phút — giá trị "HH:mm". */
+function Time24Selects({
+  hourId,
+  minuteId,
+  value,
+  onChange,
+}: {
+  hourId: string;
+  minuteId: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const hh = value.length >= 2 ? value.slice(0, 2) : "";
+  const mm = value.length >= 5 ? value.slice(3, 5) : "";
+  return (
+    <div className="flex items-center gap-1.5">
+      <select
+        id={hourId}
+        className="h-10 w-24 rounded-lg border border-slate-300 bg-white px-3 text-sm"
+        value={hh}
+        onChange={(e) => onChange(`${e.target.value}:${mm || "00"}`)}
+      >
+        <option value="">--</option>
+        {HOURS.map((h) => (
+          <option key={h} value={h}>
+            {h} giờ
+          </option>
+        ))}
+      </select>
+      <select
+        id={minuteId}
+        className="h-10 w-24 rounded-lg border border-slate-300 bg-white px-3 text-sm"
+        value={mm}
+        onChange={(e) => onChange(`${hh || "00"}:${e.target.value}`)}
+      >
+        <option value="">--</option>
+        {MINUTES.map((m) => (
+          <option key={m} value={m}>
+            {m} phút
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function toInput(v: ActivityFormValues): ActivityInput {
   const input: ActivityInput = {
     name: v.name.trim(),
     description: v.description.trim() || null,
     icon: v.icon.trim() || null,
+    unit: v.unit.trim() || null,
     type: v.type,
-    proofType: v.proofType,
+    // Video không còn hỗ trợ — bằng chứng check-in chỉ là ảnh.
+    proofType: "PHOTO",
   };
   if (v.type === "DEADLINE") {
     input.deadlineTime = v.deadlineTime;
@@ -129,6 +182,7 @@ export function ActivityFormDialog({
 
   const {
     register,
+    control,
     handleSubmit,
     watch,
     reset,
@@ -139,12 +193,12 @@ export function ActivityFormDialog({
       name: "",
       description: "",
       icon: "",
+      unit: "",
       type: "DEADLINE",
       deadlineTime: "",
       targetMinutes: "",
       windowStart: "",
       windowEnd: "",
-      proofType: "ANY",
     },
   });
 
@@ -157,6 +211,7 @@ export function ActivityFormDialog({
               name: activity.name,
               description: activity.description ?? "",
               icon: activity.icon ?? "",
+              unit: activity.unit ?? "",
               type: activity.type,
               deadlineTime: toTimeInput(activity.deadlineTime),
               targetMinutes:
@@ -165,18 +220,17 @@ export function ActivityFormDialog({
                   : "",
               windowStart: toTimeInput(activity.windowStart),
               windowEnd: toTimeInput(activity.windowEnd),
-              proofType: activity.proofType,
             }
           : {
               name: "",
               description: "",
               icon: "",
+              unit: "",
               type: "DEADLINE",
               deadlineTime: "",
               targetMinutes: "",
               windowStart: "",
               windowEnd: "",
-              proofType: "ANY",
             },
       );
     }
@@ -236,6 +290,21 @@ export function ActivityFormDialog({
             {fieldError("name")}
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="act-unit">Đơn vị / mục tiêu (tùy chọn)</Label>
+            <Input
+              id="act-unit"
+              placeholder="VD: 10000 bước, 5 km"
+              maxLength={50}
+              {...register("unit")}
+            />
+            <p className="text-xs text-slate-400">
+              Ghi chú mục tiêu hiển thị kèm hoạt động, VD: đi 10000 bước, chạy 5
+              km.
+            </p>
+            {fieldError("unit")}
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="act-icon">Icon (emoji)</Label>
@@ -277,10 +346,17 @@ export function ActivityFormDialog({
           {type === "DEADLINE" ? (
             <div className="space-y-2">
               <Label htmlFor="act-deadline">Giờ hạn *</Label>
-              <Input
-                id="act-deadline"
-                type="time"
-                {...register("deadlineTime")}
+              <Controller
+                name="deadlineTime"
+                control={control}
+                render={({ field }) => (
+                  <Time24Selects
+                    hourId="act-deadline"
+                    minuteId="act-deadline-min"
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
               />
               <p className="text-xs text-slate-400">
                 Chỉ nhận check-in từ 2 giờ trước đến 10 phút sau mốc giờ (VD:
@@ -301,8 +377,8 @@ export function ActivityFormDialog({
                 {...register("targetMinutes")}
               />
               <p className="text-xs text-slate-400">
-                VD: 60 = thể dục 1 giờ. Trong ngày chỉ cần tick + chụp 1
-                ảnh/video là đạt.
+                VD: 60 = thể dục 1 giờ. Trong ngày chỉ cần tick + chụp 1 ảnh là
+                đạt.
               </p>
               {fieldError("targetMinutes")}
             </div>
@@ -312,37 +388,38 @@ export function ActivityFormDialog({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="act-win-start">Bắt đầu *</Label>
-                <Input
-                  id="act-win-start"
-                  type="time"
-                  {...register("windowStart")}
+                <Controller
+                  name="windowStart"
+                  control={control}
+                  render={({ field }) => (
+                    <Time24Selects
+                      hourId="act-win-start"
+                      minuteId="act-win-start-min"
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  )}
                 />
                 {fieldError("windowStart")}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="act-win-end">Kết thúc *</Label>
-                <Input
-                  id="act-win-end"
-                  type="time"
-                  {...register("windowEnd")}
+                <Controller
+                  name="windowEnd"
+                  control={control}
+                  render={({ field }) => (
+                    <Time24Selects
+                      hourId="act-win-end"
+                      minuteId="act-win-end-min"
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  )}
                 />
                 {fieldError("windowEnd")}
               </div>
             </div>
           ) : null}
-
-          <div className="space-y-2">
-            <Label htmlFor="act-proof">Loại bằng chứng *</Label>
-            <select
-              id="act-proof"
-              className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
-              {...register("proofType")}
-            >
-              <option value="ANY">Ảnh hoặc video</option>
-              <option value="PHOTO">Chỉ ảnh</option>
-              <option value="VIDEO">Chỉ video</option>
-            </select>
-          </div>
 
           {formError ? (
             <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">

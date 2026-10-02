@@ -20,7 +20,7 @@ public static class DtoMapper
         members.Select(x => x.Member.ToDto(x.User)).ToList());
 
     public static ActivityDto ToDto(this Activity a) => new(
-        a.Id.ToString(), a.ChallengeId.ToString(), a.Name, a.Description, a.Icon, a.Type,
+        a.Id.ToString(), a.ChallengeId.ToString(), a.Name, a.Description, a.Icon, a.Unit, a.Type,
         Fmt.Time(a.DeadlineTime), a.GraceMinutes, a.TargetMinutes, a.MinSessionMinutes,
         Fmt.Time(a.WindowStart), Fmt.Time(a.WindowEnd), a.ProofType, a.SortOrder);
 

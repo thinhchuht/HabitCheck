@@ -11,12 +11,14 @@ namespace HabitCheckin.Application.Fund;
 
 // ---------- Fund overview ----------
 
-public sealed record GetFundQuery(Guid GroupId) : IRequest<FundDto>;
+public sealed record GetFundQuery(Guid GroupId, int Page, int PageSize) : IRequest<FundDto>;
 
 public sealed class GetFundHandler(IAppDbContext db, ICurrentUser user) : IRequestHandler<GetFundQuery, FundDto>
 {
     public async Task<FundDto> Handle(GetFundQuery request, CancellationToken ct)
     {
+        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var page = Math.Max(1, request.Page);
         var isMember = await db.GroupMembers.AnyAsync(m => m.GroupId == request.GroupId && m.UserId == user.Id, ct);
         if (!isMember) throw new UnauthorizedException("Bạn không phải thành viên của nhóm");
 
@@ -62,15 +64,45 @@ public sealed class GetFundHandler(IAppDbContext db, ICurrentUser user) : IReque
             .OrderByDescending(d => d.Balance)
             .ToList();
 
-        var history = await db.PenaltyLedger.AsNoTracking()
+        var debtsTotal = debts.Count;
+        debts = debts.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+        var totalPenalty = penalties.Values.Sum();
+        var totalPaid = payments.Values.Sum();
+
+        return new FundDto(request.GroupId.ToString(), totalPenalty, totalPaid,
+            totalPenalty - totalPaid, debts, debtsTotal);
+    }
+}
+
+// ---------- Fund history ----------
+
+public sealed record GetFundHistoryQuery(Guid GroupId, int Page, int PageSize) : IRequest<FundHistoryPageDto>;
+
+public sealed class GetFundHistoryHandler(IAppDbContext db, ICurrentUser user)
+    : IRequestHandler<GetFundHistoryQuery, FundHistoryPageDto>
+{
+    public async Task<FundHistoryPageDto> Handle(GetFundHistoryQuery request, CancellationToken ct)
+    {
+        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var page = Math.Max(1, request.Page);
+
+        var isMember = await db.GroupMembers.AnyAsync(m => m.GroupId == request.GroupId && m.UserId == user.Id, ct);
+        if (!isMember) throw new UnauthorizedException("Bạn không phải thành viên của nhóm");
+
+        var query = db.PenaltyLedger.AsNoTracking()
             .Include(l => l.User)
             .Include(l => l.CreatedByUser)
-            .Where(l => l.GroupId == request.GroupId)
+            .Where(l => l.GroupId == request.GroupId);
+
+        var total = await query.CountAsync(ct);
+        var rows = await query
             .OrderByDescending(l => l.CreatedAt)
-            .Take(200)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync(ct);
 
-        var historyDtos = history.Select(l => new FundHistoryDto(
+        var items = rows.Select(l => new FundHistoryDto(
             l.Id.ToString(),
             l.UserId.ToString(),
             l.User?.DisplayName ?? "Unknown",
@@ -82,11 +114,7 @@ public sealed class GetFundHandler(IAppDbContext db, ICurrentUser user) : IReque
             Fmt.Iso(l.CreatedAt)!))
             .ToList();
 
-        var totalPenalty = penalties.Values.Sum();
-        var totalPaid = payments.Values.Sum();
-
-        return new FundDto(request.GroupId.ToString(), totalPenalty, totalPaid,
-            totalPenalty - totalPaid, debts, historyDtos);
+        return new FundHistoryPageDto(items, total, page, pageSize);
     }
 }
 

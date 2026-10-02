@@ -47,6 +47,9 @@ export function ActivityRow({
           <Badge variant="secondary">
             {PROOF_TYPE_LABELS[activity.proofType]}
           </Badge>
+          {activity.unit ? (
+            <Badge variant="default">{activity.unit}</Badge>
+          ) : null}
         </div>
         <p className="mt-0.5 truncate text-sm text-slate-500">
           {activitySummary(activity)}

@@ -1,6 +1,6 @@
 # Habit Check-in — Tài liệu thiết kế hệ thống
 
-> Web todo list theo ngày, check-in có bằng chứng (ảnh/video), tính tiền phạt tự động, theo dõi realtime từng người trong nhóm.
+> Web todo list theo ngày, check-in có bằng chứng (ảnh), tính tiền phạt tự động, theo dõi realtime từng người trong nhóm.
 
 | Thành phần  | Công nghệ                                                  |
 | ----------- | ---------------------------------------------------------- |
@@ -22,7 +22,7 @@
 - **Group (Nhóm)**: tập hợp người chơi cùng nhau, xem realtime trạng thái của nhau, dùng chung một quỹ phạt. Tham gia bằng mã mời. User có thể **tạo/tham gia nhiều nhóm** và tự do chuyển đổi — thanh bar trái hiển thị danh sách nhóm kèm **số việc chưa làm hôm nay** của từng nhóm (badge số cam; ✓ xanh khi xong hết), click nhóm để chuyển nhóm đang theo dõi (mọi trang theo group này); **không có chức năng xoá nhóm**.
 - **Challenge (Kỳ thử thách)**: mỗi user trong một nhóm tạo 1 challenge có `start_date` và `end_date`. Trong challenge user tự định nghĩa danh sách hoạt động.
 - **Activity (Hoạt động)**: do user tự điền tên + kiểu thời gian + thông số.
-- **Check-in**: lần ghi nhận thực hiện hoạt động, **bắt buộc đính kèm ảnh hoặc video**.
+- **Check-in**: lần ghi nhận thực hiện hoạt động, **bắt buộc đính kèm ảnh** (video không còn hỗ trợ).
 - **Daily Result**: kết quả chốt mỗi ngày của từng user: số hoạt động fail và số tiền phạt.
 
 ### 1.2 Kiểu thời gian của hoạt động
@@ -35,12 +35,12 @@
 
 ### 1.3 Bằng chứng (proof)
 
-- Mỗi check-in **bắt buộc** 1 media: ảnh hoặc video. (DURATION cũng chỉ check-in 1 lần/ngày — tick + 1 ảnh, không còn check-in/check-out đo thời lượng.)
-- Hoạt động có thể cấu hình `proof_type`: `PHOTO` | `VIDEO` | `ANY`.
-- Giới hạn: ảnh ≤ 10MB, video ≤ 60s / 50MB (cấu hình được).
+- Mỗi check-in **bắt buộc** 1 ảnh. (Video không còn hỗ trợ — server chặn upload/xác minh video cho check-in.) DURATION cũng chỉ check-in 1 lần/ngày — tick + 1 ảnh, không còn check-in/check-out đo thời lượng.
+- `proof_type` không còn chọn trên UI — mọi hoạt động lưu `PHOTO` (cột DB enum `PHOTO|VIDEO|ANY` giữ cho dữ liệu cũ; server vẫn chỉ nhận ảnh).
+- Giới hạn: ảnh ≤ 10MB (cấu hình được).
 - Chống gian lận:
   - Giờ check-in lấy theo **giờ server**, không tin giờ client.
-  - Luồng: client xin _upload intent_ → server ghi `intent_at` và trả chữ ký Cloudinary → client upload → gửi `public_id` lên check-in. `checkin_at = intent_at`, với điều kiện media hoàn tất upload trong vòng 15 phút sau intent (kiểm bằng `created_at` từ Cloudinary Admin API). Nhờ vậy video upload chậm không bị tính trễ oan.
+  - Luồng: client xin _upload intent_ → server ghi `intent_at` và trả chữ ký Cloudinary → client upload → gửi `public_id` lên check-in. `checkin_at = intent_at`, với điều kiện media hoàn tất upload trong vòng 15 phút sau intent (kiểm bằng `created_at` từ Cloudinary Admin API). Nhờ vậy ảnh upload chậm (mạng yếu) không bị tính trễ oan.
   - Trên mobile, input dùng `capture="environment"` để ưu tiên chụp trực tiếp từ camera.
   - Mỗi `public_id` chỉ dùng một lần.
   - **Không có bước duyệt**: bằng chứng hợp lệ ngay khi upload thành công (các endpoint report/approve/reject vẫn giữ trong code, UI không dùng).
@@ -178,7 +178,7 @@ apps/api/
 │   ├── HabitCheckin.Application/       # Use case (CQRS với MediatR), DTO, validator
 │   │   ├── Abstractions/ (IAppDbContext, IClock, IMediaStorage, IRealtimeNotifier, ICurrentUser)
 │   │   ├── Auth/         (GoogleLogin, PasswordLogin, RefreshToken, Me/Profile)
-│   │   ├── Groups/       (CreateGroup, JoinGroup, GetMyGroups, GetGroupLiveBoard, UpdatePenaltyTiers)
+│   │   ├── Groups/       (CreateGroup, JoinGroup, GetMyGroups, GetGroupLiveBoard, GetGroupDailyReport, UpdatePenaltyTiers)
 │   │   ├── Challenges/   (CreateChallenge, UpdateChallenge, AddActivity, ...)
 │   │   ├── CheckIns/     (CreateUploadIntent, CheckIn, CheckOut, GetToday)
 │   │   ├── CheatDays/    (MarkCheatDay, CancelCheatDay)
@@ -265,7 +265,7 @@ erDiagram
 ```sql
 -- Kiểu enum
 CREATE TYPE activity_type    AS ENUM ('DEADLINE','DURATION','WINDOW');
-CREATE TYPE proof_type       AS ENUM ('PHOTO','VIDEO','ANY');
+CREATE TYPE proof_type       AS ENUM ('PHOTO','VIDEO','ANY');  -- UI mới chỉ lưu PHOTO (video đã bỏ); VIDEO/ANY = dữ liệu cũ
 CREATE TYPE challenge_status AS ENUM ('DRAFT','ACTIVE','COMPLETED','CANCELLED');
 CREATE TYPE checkin_status   AS ENUM ('OPEN','COMPLETED','ABANDONED','REJECTED');
 CREATE TYPE result_status    AS ENUM ('PROVISIONAL','FINAL');
@@ -329,6 +329,7 @@ CREATE TABLE activities (
   name                text NOT NULL,
   description         text,
   icon                text,
+  unit                text,           -- đơn vị/mục tiêu tự do, VD "10000 bước", "5 km"
   type                activity_type NOT NULL,
   deadline_time       time,          -- DEADLINE
   grace_minutes       int NOT NULL DEFAULT 0,   -- không còn dùng (quy tắc ±5 phút cố định), giữ cột DB
@@ -509,15 +510,16 @@ Base: `/api`, auth Bearer JWT, lỗi trả `ProblemDetails` (RFC 7807). OpenAPI 
 
 ### Groups
 
-| Method | Path                            | Mô tả                                                                                                                                                                                                                                            |
-| ------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| POST   | `/groups`                       | Tạo nhóm                                                                                                                                                                                                                                         |
-| POST   | `/groups/join`                  | `{inviteCode}`                                                                                                                                                                                                                                   |
-| GET    | `/groups/mine`                  | Danh sách nhóm tôi tham gia, mỗi nhóm kèm `myChallenge` (kỳ chưa huỷ gần nhất của tôi trong nhóm) — dùng để tự chọn nhóm chưa hết hạn khi đăng nhập. Thành viên + kỳ của **mọi** nhóm tải theo batch (số query cố định, không tăng theo số nhóm) |
-| GET    | `/groups/{id}`                  | Chi tiết + thành viên                                                                                                                                                                                                                            |
-| PATCH  | `/groups/{id}/penalty-tiers`    | Owner cập nhật bậc phạt                                                                                                                                                                                                                          |
-| GET    | `/groups/{id}/live`             | Snapshot bảng realtime hôm nay                                                                                                                                                                                                                   |
-| DELETE | `/groups/{id}/members/{userId}` | Owner xoá thành viên                                                                                                                                                                                                                             |
+| Method | Path                                  | Mô tả                                                                                                                                                                                                                                                                                                                                       |
+| ------ | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/groups`                             | Tạo nhóm                                                                                                                                                                                                                                                                                                                                    |
+| POST   | `/groups/join`                        | `{inviteCode}`                                                                                                                                                                                                                                                                                                                              |
+| GET    | `/groups/mine`                        | Danh sách nhóm tôi tham gia, mỗi nhóm kèm `myChallenge` (kỳ chưa huỷ gần nhất của tôi trong nhóm) — dùng để tự chọn nhóm chưa hết hạn khi đăng nhập. Thành viên + kỳ của **mọi** nhóm tải theo batch (số query cố định, không tăng theo số nhóm)                                                                                            |
+| GET    | `/groups/{id}`                        | Chi tiết + thành viên                                                                                                                                                                                                                                                                                                                       |
+| PATCH  | `/groups/{id}/penalty-tiers`          | Owner cập nhật bậc phạt                                                                                                                                                                                                                                                                                                                     |
+| GET    | `/groups/{id}/live`                   | Snapshot bảng realtime hôm nay                                                                                                                                                                                                                                                                                                              |
+| GET    | `/groups/{id}/daily-report?from=&to=` | Bảng kiểm tra cả nhóm theo **khoảng ngày** (mặc định hôm nay → hôm nay; `to` ≤ hôm nay, `from` ≤ `to`, tối đa 92 ngày): với từng thành viên, từng ngày trong khoảng — kỳ thử thách phủ ngày đó, số hoạt động đạt (VD 3/4), chi tiết từng hoạt động, tiền phạt; ngày cheat hiện trung lập; kèm trạng thái đã chốt (PROVISIONAL/FINAL) nếu có |
+| DELETE | `/groups/{id}/members/{userId}`       | Owner xoá thành viên                                                                                                                                                                                                                                                                                                                        |
 
 ### Challenges & Activities
 
@@ -554,13 +556,14 @@ Base: `/api`, auth Bearer JWT, lỗi trả `ProblemDetails` (RFC 7807). OpenAPI 
 
 ### Stats & Fund
 
-| Method | Path                                 | Mô tả                                               |
-| ------ | ------------------------------------ | --------------------------------------------------- |
-| GET    | `/stats/me?from=&to=`                | Tỷ lệ hoàn thành, streak, tổng phạt, theo hoạt động |
-| GET    | `/stats/me/heatmap?year=`            | Lịch nhiệt                                          |
-| GET    | `/groups/{id}/leaderboard?from=&to=` | Xếp hạng nhóm                                       |
-| GET    | `/groups/{id}/fund`                  | Tổng quỹ, nợ từng người, lịch sử                    |
-| POST   | `/groups/{id}/fund/payments`         | Owner ghi nhận đã đóng tiền                         |
+| Method | Path                                        | Mô tả                                                              |
+| ------ | ------------------------------------------- | ------------------------------------------------------------------ |
+| GET    | `/stats/me?from=&to=`                       | Tỷ lệ hoàn thành, streak, tổng phạt, theo hoạt động                |
+| GET    | `/stats/me/heatmap?year=`                   | Lịch nhiệt                                                         |
+| GET    | `/groups/{id}/leaderboard?from=&to=`        | Xếp hạng nhóm                                                      |
+| GET    | `/groups/{id}/fund?page=&pageSize=`         | Tổng quỹ + bảng nợ từng người (phân trang, mặc định 10/trang)      |
+| GET    | `/groups/{id}/fund/history?page=&pageSize=` | Lịch sử quỹ (sổ cái) phân trang, mặc định 20/trang, mới nhất trước |
+| POST   | `/groups/{id}/fund/payments`                | Owner ghi nhận đã đóng tiền                                        |
 
 ### Admin (chỉ `role=admin`)
 
@@ -632,12 +635,12 @@ Server đẩy về group:
 - Thẻ từng hoạt động:
   - `DEADLINE`: chỉ nhận check-in từ **2 giờ trước đến 10 phút sau** mốc giờ (mở camera/chọn file): trước khung → "Chưa mở giờ check-in (HH:mm–HH:mm)" + nút disable; trong khung → đếm ngược (nút bật); sau khung → "ĐÃ QUÁ GIỜ" + disable.
   - `DURATION`: thời lượng mục tiêu (VD "60 phút"), nút **Hoàn thành** (tick) mở hộp thoại chụp ảnh; sau check-in hiện ✅ kèm giờ và ảnh đã nộp.
-  - Hiển thị ảnh/video đã nộp.
+  - Hiển thị ảnh đã nộp.
 
 ### 7.3 Kỳ thử thách (thiết lập)
 
 - Chọn ngày bắt đầu / kết thúc (date range picker).
-- Form thêm hoạt động: tên, icon, kiểu thời gian, tham số, loại bằng chứng. `DEADLINE` chỉ đặt mốc giờ — cửa sổ check-in cố định 2h trước – 10 phút sau mốc (không còn ô "chậm thêm" `grace_minutes`).
+- Form thêm hoạt động: tên, đơn vị/mục tiêu tự do (tuỳ chọn, VD "10000 bước", "5 km"), icon, kiểu thời gian, tham số, loại bằng chứng. `DEADLINE` chỉ đặt mốc giờ — cửa sổ check-in cố định 2h trước – 10 phút sau mốc (không còn ô "chậm thêm" `grace_minutes`).
 - Xem trước bảng phạt của nhóm.
 - Badge "Sẽ khoá lúc 00:00 dd/MM" và hộp xác nhận khi DRAFT; khi ACTIVE hiển thị chế độ chỉ đọc 🔒.
 - Lịch sử các kỳ đã qua.
@@ -665,7 +668,7 @@ Server đẩy về group:
 
 ### 7.7 Quỹ phạt
 
-- Tổng quỹ, số dư nợ từng người, lịch sử phạt/đóng tiền.
+- Tổng quỹ, số dư nợ từng người (bảng nợ phân trang 10/trang), lịch sử phạt/đóng tiền (sổ cái phân trang 20/trang).
 - Owner ghi nhận đóng tiền. (Mở rộng: sinh mã VietQR để chuyển khoản.)
 
 ### 7.8 Nhóm
@@ -700,6 +703,15 @@ Khu admin là **bộ tab riêng** (`AdminLayout` ở `/admin`): Tổng quan · U
   - nút chạy lại job cho 1 ngày: Chốt ngày (PROVISIONAL) / Finalize (FINAL) / Kích hoạt kỳ mới — **chỉ Development**;
   - **Gửi thông báo** tới mọi user online (broadcast `Announcement` qua SignalR, tối đa 500 ký tự);
   - **Lịch sử thao tác admin** (audit log, badge theo loại thao tác, phân trang).
+
+### 7.11 Lịch sử nhóm (`/history`)
+
+Trang riêng xem **lịch sử từng ngày của cả nhóm** (chữ "Lịch sử" trong sidebar, theo nhóm đang chọn):
+
+- Chọn **khoảng ngày** `từ → đến` (mặc định hôm nay → hôm nay, không chọn ngày tương lai, tối đa 92 ngày; nút nhanh Hôm nay / 7 ngày / 30 ngày).
+- Mỗi thành viên: tổng phạt trong khoảng + số ngày không fail; bấm mở rộng ra **bảng từng ngày** — mỗi ngày hiện kỳ thử thách phủ ngày đó (tên + trạng thái), `x/y` hoạt động đạt, tiền phạt, trạng thái chốt (Chốt / Tạm).
+- Bấm mở rộng từng ngày xem chi tiết hoạt động ✅ đạt (kèm giờ) / ❌ fail kèm lý do; cheat day hiện trung lập "Không chấm".
+- Dữ liệu lấy từ `GET /groups/{id}/daily-report?from=&to=`.
 
 ---
 
@@ -856,8 +868,8 @@ Tất cả job phải **idempotent** (chạy lại không sinh trùng) và có e
 
 - Folder: `habit/{groupId}/{userId}/{yyyy-MM-dd}/` cho bằng chứng, `avatars/{userId}` cho avatar.
 - Server ký các tham số: `timestamp`, `folder`, `public_id` (server sinh = `intentId`), `upload_preset` (signed), `context=intent={intentId}`.
-- Preset áp dụng: ảnh tự resize tối đa 1600px, `q_auto,f_auto`; video giới hạn độ dài, sinh thumbnail.
-- Xác minh phía server bằng Admin API (`GetResource`): đúng `public_id`, `resource_type` hợp lệ theo `proof_type`, `bytes` trong giới hạn, `created_at` trong 15 phút kể từ `intent_at`.
+- Preset áp dụng: ảnh tự resize tối đa 1600px, `q_auto,f_auto` (bằng chứng chỉ là ảnh — video đã bỏ).
+- Xác minh phía server bằng Admin API (`GetResource`): đúng `public_id`, `resource_type` là ảnh, `bytes` trong giới hạn, `created_at` trong 15 phút kể từ `intent_at`.
 - Avatar dùng transformation `c_fill,g_face,w_256,h_256,r_max`.
 
 ```csharp
@@ -884,6 +896,7 @@ public UploadSignature Sign(UploadIntent intent, string folder)
 - Tài khoản admin (đăng nhập bằng username/mật khẩu): mật khẩu băm **PBKDF2-SHA256, 210k iterations, salt 16B** (format `PBKDF2-SHA256$<iter>$<saltB64>$<hashB64>`), so khớp bằng `FixedTimeEquals`. Lỗi đăng nhập trả một thông báo chung, không tiết lộ tài khoản có tồn tại hay không.
 - Seeder chạy khi API khởi động (sau migration): tạo admin theo `Admin:Username` (mặc định `thinhchuht`); mật khẩu lấy từ `Admin:Password` (env/appsettings) nếu có — mỗi lần khởi động có giá trị này, hash được cập nhật (đường xoay mật khẩu) — nếu không có thì dùng hash mặc định nhúng sẵn. **Repo không chứa plaintext mật khẩu.**
 - Access token JWT 15 phút; thêm claim `role = "admin"` khi `is_admin = true`; refresh token lưu hash, cookie `HttpOnly; Secure; SameSite=Strict`, xoay vòng mỗi lần refresh.
+- **Không tự đăng xuất**: 401 mà refresh thất bại thì client **không** xoá session / không đá về trang login — chỉ để request đó lỗi, các request sau thử refresh lại (phiên tự hồi khi server/cookie bình thường). Chỉ đăng xuất khi user bấm nút Đăng xuất hoặc khi bị admin chặn (403 banned).
 - Policy: `GroupMember`, `GroupAdmin`, `ChallengeOwner`, `Admin` (RequireRole("admin")).
 - **User bị chặn** (`is_banned = true`): `BannedUserMiddleware` (chạy sau `UseAuthentication`) chặn mọi request có JWT hợp lệ (ngoại trừ `/api/auth/*`) bằng 403 ProblemDetails; luồng refresh token cũng từ chối user bị chặn nên không thể tự "hồi sinh" access token. Client nhận 403 loại "banned" → xoá session, toast, về trang login.
 - **Audit log admin**: mọi thao tác quản lý (ban/unban, đổi tên, đặt lại mật khẩu, cấp/thu hồi admin, chạy job, gửi thông báo) ghi vào `admin_audit_logs` — ai làm, thao tác gì, target nào, chi tiết, khi nào; mật khẩu không bao giờ được ghi.
@@ -973,12 +986,12 @@ Migration: API tự chạy `db.Database.MigrateAsync()` khi khởi động (môi
 
 ## 12. Lộ trình triển khai
 
-| Giai đoạn   | Nội dung                                                                                                                                                            |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **MVP 1**   | Google login, nhóm + mã mời, challenge + hoạt động (DEADLINE, DURATION), khoá theo ngày bắt đầu, check-in/out có ảnh/video, trang Hôm nay, job chốt ngày, tính phạt |
-| **MVP 2**   | Live board SignalR, trang bằng chứng check-in (không cần duyệt), đổi avatar, quỹ phạt                                                                               |
-| **MVP 3**   | Thống kê + heatmap + leaderboard, nhắc nhở Web Push, PWA (cài lên điện thoại)                                                                                       |
-| **Mở rộng** | VietQR đóng quỹ, xuất báo cáo Excel, huy hiệu thành tích, ngày nghỉ phép (miễn phạt)                                                                                |
+| Giai đoạn   | Nội dung                                                                                                                                                  |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MVP 1**   | Google login, nhóm + mã mời, challenge + hoạt động (DEADLINE, DURATION), khoá theo ngày bắt đầu, check-in có ảnh, trang Hôm nay, job chốt ngày, tính phạt |
+| **MVP 2**   | Live board SignalR, trang bằng chứng check-in (không cần duyệt), đổi avatar, quỹ phạt                                                                     |
+| **MVP 3**   | Thống kê + heatmap + leaderboard, nhắc nhở Web Push, PWA (cài lên điện thoại)                                                                             |
+| **Mở rộng** | VietQR đóng quỹ, xuất báo cáo Excel, huy hiệu thành tích, ngày nghỉ phép (miễn phạt)                                                                      |
 
 ---
 

@@ -22,7 +22,13 @@ public sealed record FundDto(
     long TotalPaid,
     long TotalOutstanding,
     List<FundDebtDto> Debts,
-    List<FundHistoryDto> History);
+    int DebtsTotal);
+
+public sealed record FundHistoryPageDto(
+    List<FundHistoryDto> Items,
+    int Total,
+    int Page,
+    int PageSize);
 
 public sealed record RecordPaymentCommand(Guid GroupId, Guid UserId, long Amount, string? Note)
     : IRequest<LedgerEntryDto>;

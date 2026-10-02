@@ -1,4 +1,5 @@
 import { Wallet } from "lucide-react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fundApi } from "@/api/fund";
 import { groupsApi } from "@/api/groups";
@@ -13,9 +14,13 @@ import { FundSummary } from "./FundSummary";
 import { HistoryTable } from "./HistoryTable";
 import { RecordPaymentDialog } from "./RecordPaymentDialog";
 
+const DEBT_PAGE_SIZE = 10;
+
 export function FundPage() {
   const groupId = useAppStore((s) => s.selectedGroupId);
   const me = useAuthStore((s) => s.user);
+
+  const [debtPage, setDebtPage] = useState(1);
 
   const {
     data: fund,
@@ -24,10 +29,10 @@ export function FundPage() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ["fund", groupId],
+    queryKey: ["fund", groupId, debtPage],
     queryFn: () =>
       groupId
-        ? fundApi.get(groupId)
+        ? fundApi.get(groupId, debtPage, DEBT_PAGE_SIZE)
         : Promise.reject(new Error("Chưa chọn nhóm")),
     enabled: groupId != null,
   });
@@ -91,8 +96,13 @@ export function FundPage() {
       </PageHeader>
 
       <FundSummary fund={fund} />
-      <DebtTable debts={fund.debts} />
-      <HistoryTable history={fund.history} />
+      <DebtTable
+        debts={fund.debts}
+        page={debtPage}
+        totalPages={Math.max(1, Math.ceil(fund.debtsTotal / DEBT_PAGE_SIZE))}
+        onPageChange={setDebtPage}
+      />
+      {groupId ? <HistoryTable groupId={groupId} /> : null}
     </div>
   );
 }

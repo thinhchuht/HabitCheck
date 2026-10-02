@@ -40,7 +40,7 @@ export function ReviewPage() {
     <div className="space-y-5">
       <PageHeader
         title="Bằng chứng check-in"
-        subtitle="Ảnh/video mọi thành viên check-in — hợp lệ ngay khi upload, không cần duyệt."
+        subtitle="Ảnh check-in của mọi thành viên — hợp lệ ngay khi upload, không cần duyệt."
       />
 
       <div className="flex flex-wrap items-center gap-3">

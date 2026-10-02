@@ -54,9 +54,9 @@ api.interceptors.response.use(
       if (refreshed) {
         return api.request(config);
       }
-      useAuthStore.getState().clearAuth();
-      toast.error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.");
-      window.location.assign("/login");
+      // Không tự đăng xuất: giữ nguyên phiên, chỉ để request này lỗi.
+      // Các request sau sẽ thử refresh lại — phiên tự hồi khi server/cookie
+      // bình thường. Chỉ đăng xuất khi user bấm nút hoặc bị admin chặn (403).
     }
 
     // 403 do tài khoản bị admin chặn (BannedUserMiddleware / RefreshTokenHandler).

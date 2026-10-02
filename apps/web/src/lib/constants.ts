@@ -16,10 +16,8 @@ export const GOOGLE_CLIENT_ID: string =
 
 export const TZ = "Asia/Ho_Chi_Minh";
 
-// Media limits (contract §1.3 / §2)
+// Media limits (contract §1.3 / §2) — bằng chứng chỉ là ảnh (video đã bỏ)
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10MB
-export const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50MB
-export const MAX_VIDEO_SECONDS = 60;
 
 export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
   DEADLINE: "Giờ chính xác",

@@ -33,13 +33,28 @@ export function TodayItemCard({ item, content }: TodayItemCardProps) {
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-xl">
-              {isEmojiLike(activity.icon) ? (activity.icon as string) : <Clock className="h-5 w-5 text-indigo-500" />}
+              {isEmojiLike(activity.icon) ? (
+                (activity.icon as string)
+              ) : (
+                <Clock className="h-5 w-5 text-indigo-500" />
+              )}
             </span>
             <div className="min-w-0">
-              <p className="truncate text-base font-semibold text-slate-900">{activity.name}</p>
+              <p className="truncate text-base font-semibold text-slate-900">
+                {activity.name}
+              </p>
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                <Badge variant="outline">{ACTIVITY_TYPE_LABELS[activity.type]}</Badge>
-                <StatusBadge state={state} failReason={failReason} isLate={isLate} />
+                <Badge variant="outline">
+                  {ACTIVITY_TYPE_LABELS[activity.type]}
+                </Badge>
+                {activity.unit ? (
+                  <Badge variant="default">{activity.unit}</Badge>
+                ) : null}
+                <StatusBadge
+                  state={state}
+                  failReason={failReason}
+                  isLate={isLate}
+                />
               </div>
             </div>
           </div>
@@ -59,7 +74,9 @@ export function TodayItemCard({ item, content }: TodayItemCardProps) {
           </div>
         ) : null}
 
-        {lastNote ? <p className="text-xs italic text-slate-400">“{lastNote}”</p> : null}
+        {lastNote ? (
+          <p className="text-xs italic text-slate-400">“{lastNote}”</p>
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -68,6 +85,8 @@ export function TodayItemCard({ item, content }: TodayItemCardProps) {
 /** Show when a PENDING deadline is past its limit (used by cards). */
 export function firstCheckinTime(item: TodayItemDto): string | null {
   if (item.checkins.length === 0) return null;
-  const first = item.checkins.reduce((a, b) => (a.checkinAt <= b.checkinAt ? a : b));
+  const first = item.checkins.reduce((a, b) =>
+    a.checkinAt <= b.checkinAt ? a : b,
+  );
   return fmtTime(first.checkinAt);
 }

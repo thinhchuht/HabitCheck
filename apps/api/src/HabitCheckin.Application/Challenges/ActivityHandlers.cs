@@ -15,6 +15,8 @@ public sealed class ActivityInputValidator : AbstractValidator<ActivityInput>
     public ActivityInputValidator()
     {
         RuleFor(x => x.Name).NotEmpty().WithMessage("Thiếu tên hoạt động").MaximumLength(200);
+        RuleFor(x => x.Unit).MaximumLength(50).WithMessage("Đơn vị tối đa 50 ký tự")
+            .When(x => x.Unit is not null);
         RuleFor(x => x.DeadlineTime).NotNull().WithMessage("Thiếu mốc giờ deadline")
             .When(x => x.Type == ActivityType.Deadline);
         RuleFor(x => x.TargetMinutes).GreaterThan(0).WithMessage("Mục tiêu phút phải > 0")
@@ -35,8 +37,10 @@ internal static class ActivityMapper
         a.Name = input.Name.Trim();
         a.Description = string.IsNullOrWhiteSpace(input.Description) ? null : input.Description.Trim();
         a.Icon = input.Icon;
+        a.Unit = string.IsNullOrWhiteSpace(input.Unit) ? null : input.Unit.Trim();
         a.Type = input.Type;
-        a.ProofType = input.ProofType ?? ProofType.Any;
+        // Video không còn hỗ trợ — bằng chứng check-in chỉ là ảnh.
+        a.ProofType = ProofType.Photo;
 
         a.DeadlineTime = input.DeadlineTime is null ? null : TimeOnly.Parse(input.DeadlineTime!);
         a.GraceMinutes = input.Type == ActivityType.Deadline ? (input.GraceMinutes ?? 0) : 0;

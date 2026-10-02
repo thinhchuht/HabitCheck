@@ -21,7 +21,9 @@ export function StatsPage() {
   const [year, setYear] = useState(vnNow().year());
 
   const to = vnNow().format("YYYY-MM-DD");
-  const from = vnNow().subtract(range - 1, "day").format("YYYY-MM-DD");
+  const from = vnNow()
+    .subtract(range - 1, "day")
+    .format("YYYY-MM-DD");
 
   const { data, isLoading } = useQuery({
     queryKey: ["stats", from, to],
@@ -71,7 +73,9 @@ export function StatsPage() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Phạt & hoạt động đạt theo ngày</CardTitle>
+                  <CardTitle className="text-base">
+                    Phạt & hoạt động đạt theo ngày
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <PenaltyChart byDay={data.byDay} />
@@ -90,7 +94,9 @@ export function StatsPage() {
               {data.byChallenge.length > 0 ? (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Theo kỳ thử thách</CardTitle>
+                    <CardTitle className="text-base">
+                      Theo kỳ thử thách
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
                     {data.byChallenge.map((c) => (
@@ -98,7 +104,9 @@ export function StatsPage() {
                         key={c.challengeId}
                         className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-100 px-4 py-2.5 text-sm"
                       >
-                        <span className="font-medium text-slate-800">{c.title}</span>
+                        <span className="font-medium text-slate-800">
+                          {c.title}
+                        </span>
                         <span className="text-slate-400">
                           {fmtDate(c.from)} → {fmtDate(c.to)}
                         </span>
@@ -120,7 +128,9 @@ export function StatsPage() {
         </TabsContent>
 
         <TabsContent value="leaderboard">
-          {groupId ? <Leaderboard groupId={groupId} from={from} to={to} /> : null}
+          {groupId ? (
+            <Leaderboard groupId={groupId} from={from} to={to} />
+          ) : null}
         </TabsContent>
       </Tabs>
     </div>

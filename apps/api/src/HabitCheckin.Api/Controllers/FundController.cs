@@ -13,8 +13,15 @@ public sealed class FundController(ISender sender) : ControllerBase
 {
     [HttpGet]
     [Authorize(Policy = "GroupMember")]
-    public async Task<ActionResult<FundDto>> Get(Guid groupId, CancellationToken ct) =>
-        Ok(await sender.Send(new GetFundQuery(groupId), ct));
+    public async Task<ActionResult<FundDto>> Get(
+        Guid groupId, CancellationToken ct, [FromQuery] int page = 1, [FromQuery] int pageSize = 10) =>
+        Ok(await sender.Send(new GetFundQuery(groupId, page, pageSize), ct));
+
+    [HttpGet("history")]
+    [Authorize(Policy = "GroupMember")]
+    public async Task<ActionResult<FundHistoryPageDto>> History(
+        Guid groupId, CancellationToken ct, [FromQuery] int page = 1, [FromQuery] int pageSize = 20) =>
+        Ok(await sender.Send(new GetFundHistoryQuery(groupId, page, pageSize), ct));
 
     [HttpPost("payments")]
     [Authorize(Policy = "GroupOwner")]

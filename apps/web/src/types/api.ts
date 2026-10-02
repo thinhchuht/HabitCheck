@@ -81,6 +81,8 @@ export interface ActivityDto {
   name: string;
   description: string | null;
   icon: string | null;
+  /** Đơn vị/mục tiêu tự do do user điền, VD: "10000 bước", "5 km". */
+  unit: string | null;
   type: ActivityType;
   deadlineTime: string | null;
   graceMinutes: number;
@@ -226,6 +228,58 @@ export interface LiveBoardDto {
   ticker: TickerItem[];
 }
 
+export interface DailyReportActivityDto {
+  activityId: string;
+  name: string;
+  icon: string | null;
+  type: ActivityType;
+  /** null = cheat day (trung lập, không chấm) */
+  passed: boolean | null;
+  failReason: string | null;
+  firstCheckinAt: string | null;
+}
+
+export interface DailyReportChallengeDto {
+  id: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  status: "DRAFT" | "ACTIVE" | "COMPLETED" | "CANCELLED";
+}
+
+/** Kết quả 1 ngày của 1 thành viên; challenge = null nếu ngày đó không có kỳ nào. */
+export interface DailyReportDayDto {
+  date: string;
+  challenge: DailyReportChallengeDto | null;
+  isCheatDay: boolean;
+  totalActivities: number;
+  passedCount: number;
+  failedCount: number;
+  penalty: number;
+  /** null nếu ngày đó chưa chốt (VD hôm nay) */
+  resultStatus: "PROVISIONAL" | "FINAL" | null;
+  activities: DailyReportActivityDto[];
+}
+
+export interface DailyReportMemberDto {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  days: DailyReportDayDto[];
+  totalPenalty: number;
+  /** Số ngày có kỳ mà không fail hoạt động nào (không tính cheat day) */
+  noFailDays: number;
+}
+
+export interface DailyReportDto {
+  groupId: string;
+  groupName: string;
+  from: string;
+  to: string;
+  members: DailyReportMemberDto[];
+  totalPenalty: number;
+}
+
 export interface ProofReport {
   reason: string;
   reporterName: string;
@@ -346,7 +400,15 @@ export interface FundDto {
   totalPaid: number;
   totalOutstanding: number;
   debts: FundDebt[];
-  history: FundHistoryEntry[];
+  /** Tổng số thành viên có số dư (để phân trang bảng nợ). */
+  debtsTotal: number;
+}
+
+export interface FundHistoryPage {
+  items: FundHistoryEntry[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 // ---- Request payloads ----
@@ -398,6 +460,7 @@ export interface ActivityInput {
   name: string;
   description?: string | null;
   icon?: string | null;
+  unit?: string | null;
   type: ActivityType;
   deadlineTime?: string | null;
   graceMinutes?: number;

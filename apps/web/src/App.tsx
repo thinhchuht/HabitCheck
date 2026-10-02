@@ -19,6 +19,7 @@ import { TodayPage } from "@/features/today/TodayPage";
 import { ChallengePage } from "@/features/challenge/ChallengePage";
 import { LiveBoardPage } from "@/features/live-board/LiveBoardPage";
 import { ReviewPage } from "@/features/review/ReviewPage";
+import { HistoryPage } from "@/features/history/HistoryPage";
 import { StatsPage } from "@/features/stats/StatsPage";
 import { FundPage } from "@/features/fund/FundPage";
 import { GroupPage } from "@/features/group/GroupPage";
@@ -55,6 +56,7 @@ export function App() {
             <Route path="/challenge" element={<ChallengePage />} />
             <Route path="/live-board" element={<LiveBoardPage />} />
             <Route path="/review" element={<ReviewPage />} />
+            <Route path="/history" element={<HistoryPage />} />
             <Route path="/stats" element={<StatsPage />} />
             <Route path="/fund" element={<FundPage />} />
             <Route path="/group" element={<GroupPage />} />

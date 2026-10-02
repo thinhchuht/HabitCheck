@@ -24,7 +24,10 @@ interface RecordPaymentDialogProps {
   members: MemberDto[];
 }
 
-export function RecordPaymentDialog({ groupId, members }: RecordPaymentDialogProps) {
+export function RecordPaymentDialog({
+  groupId,
+  members,
+}: RecordPaymentDialogProps) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [memberId, setMemberId] = useState(members[0]?.userId ?? "");
@@ -44,6 +47,9 @@ export function RecordPaymentDialog({ groupId, members }: RecordPaymentDialogPro
       setAmount("");
       setNote("");
       void queryClient.invalidateQueries({ queryKey: ["fund", groupId] });
+      void queryClient.invalidateQueries({
+        queryKey: ["fund-history", groupId],
+      });
     },
     onError: (err) => toast.error(getApiErrorMessage(err)),
   });
@@ -63,7 +69,8 @@ export function RecordPaymentDialog({ groupId, members }: RecordPaymentDialogPro
         <DialogHeader>
           <DialogTitle>Ghi nhận đóng tiền</DialogTitle>
           <DialogDescription>
-            Chỉ chủ nhóm thao tác được. Số tiền được trừ vào khoản nợ của thành viên.
+            Chỉ chủ nhóm thao tác được. Số tiền được trừ vào khoản nợ của thành
+            viên.
           </DialogDescription>
         </DialogHeader>
 
@@ -113,10 +120,17 @@ export function RecordPaymentDialog({ groupId, members }: RecordPaymentDialogPro
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={mutation.isPending}>
+          <Button
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={mutation.isPending}
+          >
             Huỷ
           </Button>
-          <Button onClick={() => mutation.mutate()} disabled={invalid || mutation.isPending}>
+          <Button
+            onClick={() => mutation.mutate()}
+            disabled={invalid || mutation.isPending}
+          >
             {mutation.isPending ? "Đang ghi nhận…" : "Ghi nhận"}
           </Button>
         </DialogFooter>

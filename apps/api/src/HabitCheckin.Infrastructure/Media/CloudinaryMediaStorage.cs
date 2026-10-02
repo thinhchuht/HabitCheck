@@ -39,13 +39,9 @@ public sealed class CloudinaryMediaStorage(
     {
         var folder = $"habit/{groupId:N}/{userId:N}/{date:yyyy-MM-dd}";
         var publicId = intentId.ToString("N");
-        var allowed = proofType switch
-        {
-            ProofType.Photo => new List<string> { "image" },
-            ProofType.Video => new List<string> { "video" },
-            _ => new List<string> { "image", "video" }
-        };
-        var sig = Sign(folder, publicId, _opt.ProofPreset, allowed);
+        // Video không còn hỗ trợ: bằng chứng check-in chỉ nhận ảnh.
+        // (Tham số proofType giữ cho tương thích API cũ, không ảnh hưởng loại file.)
+        var sig = Sign(folder, publicId, _opt.ProofPreset, new List<string> { "image" });
         return Task.FromResult(sig);
     }
 
@@ -93,16 +89,13 @@ public sealed class CloudinaryMediaStorage(
             || string.IsNullOrWhiteSpace(resource.PublicId))
             throw new BusinessRuleException("Không tìm thấy media đã upload");
 
-        // Đúng loại theo proof_type
-        if (proofType == ProofType.Photo && resource.ResourceType != ResourceType.Image)
-            throw new BusinessRuleException("Hoạt động này chỉ chấp nhận ảnh");
-        if (proofType == ProofType.Video && resource.ResourceType != ResourceType.Video)
-            throw new BusinessRuleException("Hoạt động này chỉ chấp nhận video");
+        // Video không còn hỗ trợ: bằng chứng chỉ nhận ảnh
+        if (resource.ResourceType != ResourceType.Image)
+            throw new BusinessRuleException("Bằng chứng check-in chỉ chấp nhận ảnh");
 
         // Dung lượng
-        var maxBytes = resource.ResourceType == ResourceType.Image ? _opt.MaxImageBytes : _opt.MaxVideoBytes;
-        if (resource.Bytes > maxBytes)
-            throw new BusinessRuleException("File vượt quá dung lượng cho phép");
+        if (resource.Bytes > _opt.MaxImageBytes)
+            throw new BusinessRuleException("Ảnh vượt quá dung lượng cho phép");
 
         // Upload phải hoàn tất trong cửa sổ tính từ intent (chống dùng file cũ).
         // CloudinaryDotNet trả CreatedAt là chuỗi KHÔNG có timezone (đã strip 'Z', giữ giờ UTC).

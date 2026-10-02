@@ -1,5 +1,10 @@
 import { api } from "./client";
-import type { GroupDto, LiveBoardDto, PenaltyTiersPayload } from "@/types/api";
+import type {
+  DailyReportDto,
+  GroupDto,
+  LiveBoardDto,
+  PenaltyTiersPayload,
+} from "@/types/api";
 
 export const groupsApi = {
   /** POST /groups — create a group (creator becomes OWNER). */
@@ -37,6 +42,16 @@ export const groupsApi = {
   /** GET /groups/{id}/live — realtime board snapshot. */
   live(id: string): Promise<LiveBoardDto> {
     return api.get<LiveBoardDto>(`/groups/${id}/live`).then((r) => r.data);
+  },
+
+  /** GET /groups/{id}/daily-report — bảng kiểm tra cả nhóm theo khoảng ngày (mặc định hôm nay). */
+  dailyReport(id: string, from?: string, to?: string): Promise<DailyReportDto> {
+    const params: Record<string, string> = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    return api
+      .get<DailyReportDto>(`/groups/${id}/daily-report`, { params })
+      .then((r) => r.data);
   },
 
   /** DELETE /groups/{id}/members/{userId} — OWNER only. */

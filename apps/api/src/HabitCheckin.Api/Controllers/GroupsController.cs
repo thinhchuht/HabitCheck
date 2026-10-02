@@ -36,6 +36,12 @@ public sealed class GroupsController(ISender sender) : ControllerBase
     public async Task<ActionResult<LiveBoardDto>> Live(Guid groupId, CancellationToken ct) =>
         Ok(await sender.Send(new GetGroupLiveQuery(groupId), ct));
 
+    [HttpGet("{groupId:guid}/daily-report")]
+    [Authorize(Policy = "GroupMember")]
+    public async Task<ActionResult<DailyReportDto>> DailyReport(
+        Guid groupId, [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken ct) =>
+        Ok(await sender.Send(new GetGroupDailyReportQuery(groupId, from, to), ct));
+
     [HttpPatch("{groupId:guid}/penalty-tiers")]
     [Authorize(Policy = "GroupOwner")]
     public async Task<ActionResult<GroupDto>> UpdatePenaltyTiers(

@@ -57,8 +57,12 @@ function restoreSession(): Promise<RestoreResult> {
       useAuthStore.getState().setAuth(res.data.accessToken, res.data.user);
       return "authenticated";
     } catch {
-      useAuthStore.getState().clearAuth();
-      return "anonymous";
+      // Không tự đăng xuất: nếu vẫn còn phiên lưu sẵn (token cũ) thì giữ
+      // nguyên — interceptor ở các request sau sẽ thử refresh lại, VD khi
+      // API đang cold start. Chỉ về trang login khi thật sự không có phiên.
+      return useAuthStore.getState().accessToken
+        ? "authenticated"
+        : "anonymous";
     }
   })();
   return restorePromise;
