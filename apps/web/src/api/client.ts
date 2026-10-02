@@ -88,7 +88,7 @@ export interface ProblemDetails {
 /** Extract a human (Vietnamese) message from an API error. */
 export function getApiErrorMessage(
   error: unknown,
-  fallback = "Đã có lỗi xảy ra. Vui lòng thử lại.",
+  fallback = "Web lỏ đừng nghịch dại, có chi nhắn tin Thịnh Chù + chụp ảnh vì sao",
 ): string {
   if (axios.isAxiosError(error)) {
     const data = (error.response?.data ?? null) as ProblemDetails | null;
