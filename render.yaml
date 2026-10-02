@@ -6,8 +6,8 @@ services:
     name: habit-checkin-api
     runtime: docker
     plan: free
-    dockerContext: ./apps/api
-    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: apps/api
+    dockerfilePath: apps/api/Dockerfile
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
