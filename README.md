@@ -92,19 +92,24 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
 
 Truy cập http://localhost:8080 (Nginx proxy: `/` → web, `/api` + `/hubs` → api).
 
-## Deploy backend lên Render (free, URL public)
+## Deploy lên Render (free, URL public) — FE + BE + DB
 
-Free tier không cần thẻ: web service 512MB RAM + PostgreSQL 1GB. URL public dạng `https://<ten>.onrender.com` — chia sẻ cho nhóm dùng được ngay. Web có thể vẫn chạy local (Vite proxy trỏ sang Render).
+Free tier không cần thẻ: API (Docker, 512MB RAM) + PostgreSQL 1GB + frontend static site (CDN). `render.yaml` (gốc repo) khai báo cả 3 service — Apply một lần Render tạo tất cả, sau đó `autoDeploy` tự build mỗi lần push.
 
 ```bash
 # 1. render.com → đăng nhập bằng GitHub → New → Blueprint → chọn repo này
-#    (tự đọc render.yaml: web service + Postgres, cả 2 plan free)
+#    (tự đọc render.yaml: API + Postgres + static site, tất cả free)
 # 2. Điền env trong dashboard: Google__ClientId, Jwt__Secret, Cloudinary__*, Admin__Password
-# 3. Chờ 2–5 phút build. Verify: https://<ten>.onrender.com/api/health → {"status":"ok"...}
+# 3. Chờ build. Verify: https://habit-checkin-api.onrender.com/api/health → {"status":"ok"...}
 ```
 
-- **Keep-alive (bắt buộc)**: free tier ngủ sau 15 phút không có request — job Hangfire (00:05/12:00) không chạy lúc ngủ. Dùng UptimeRobot (free) ping `https://<ten>.onrender.com/api/health` mỗi 5 phút để app luôn thức.
-- Web local dùng API deployed: đổi 2 dòng `target` trong `apps/web/vite.config.ts` (proxy `/api` và `/hubs`) sang `https://<ten>.onrender.com` rồi chạy lại `npm run dev`. Cookie refresh vẫn hoạt động (browser chỉ nói chuyện với `localhost:5173` qua proxy), Google OAuth không cần đổi.
+- **Frontend**: `https://habit-checkin-web.onrender.com` (Render có thể thêm hậu tố ngẫu nhiên nếu trùng tên). Cần 2 bước thêm:
+  - Google Cloud Console → OAuth client → **Authorized JavaScript origins** → thêm URL web.
+  - Static site → Settings → bật **Single Page Application mode** (để refresh deep link `/admin`, `/stats`… không 404).
+  - Nếu Render đổi tên service web → cập nhật URL thật vào env `App__CorsOrigin` của API + JS origins của Google.
+- **Vì sao FE đặt cùng `*.onrender.com`**: refresh cookie là `SameSite=Strict` — browser chỉ gửi cookie cho cùng site → FE cùng site `onrender.com` với API → luồng login hoạt động không cần đổi code. (FE ở domain khác phải đổi cookie thành `None; Secure` + CORS credentials.)
+- **Keep-alive (bắt buộc)**: API free ngủ sau 15 phút không có request — job Hangfire (00:05/12:00) không chạy lúc ngủ. Dùng UptimeRobot (free) ping `https://habit-checkin-api.onrender.com/api/health` mỗi 5 phút để app luôn thức. (Static site là CDN, không ngủ.)
+- Web local dùng API deployed (dev): đổi 2 dòng `target` trong `apps/web/vite.config.ts` (proxy `/api` và `/hubs`) sang URL API rồi chạy lại `npm run dev`.
 
 ## Cần cấu hình
 

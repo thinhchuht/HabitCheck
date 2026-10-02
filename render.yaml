@@ -37,13 +37,33 @@ services:
         value: thinhchuht
       - key: Admin__Password
         sync: false
-      # Web vẫn chạy local (localhost:5173) — request đến API qua Vite proxy (same-origin).
+      # CORS: dev local (Vite proxy) + static site production (cùng site onrender.com
+      # nên refresh cookie SameSite=Strict vẫn gửi được).
       - key: App__CorsOrigin
-        value: http://localhost:5173
+        value: http://localhost:5173,https://habit-checkin-web.onrender.com
       - key: App__TimeZone
         value: Asia/Ho_Chi_Minh
       - key: TZ
         value: Asia/Ho_Chi_Minh
+
+  # Frontend — static site (build Vite). Cùng site *.onrender.com với API nên
+  # refresh cookie SameSite=Strict vẫn hoạt động, không cần đổi cấu hình cookie.
+  - type: web
+    name: habit-checkin-web
+    runtime: static
+    buildCommand: cd apps/web && npm ci && npm run build
+    staticPublishPath: apps/web/dist
+    envVars:
+      # Vite 5 cần Node >= 18.
+      - key: NODE_VERSION
+        value: "20"
+      # Build-time (inline vào bundle) — trỏ về API đã deploy.
+      - key: VITE_API_URL
+        value: https://habit-checkin-api.onrender.com
+      - key: VITE_HUB_URL
+        value: https://habit-checkin-api.onrender.com/hubs/live
+      - key: VITE_GOOGLE_CLIENT_ID
+        value: 795347854507-4dnj9k43692j58q9nihvfbogtbbjft27.apps.googleusercontent.com
 
 databases:
   - name: habit-db
