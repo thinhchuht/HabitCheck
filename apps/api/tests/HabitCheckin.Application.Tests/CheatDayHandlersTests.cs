@@ -46,9 +46,6 @@ public class CheatDayHandlersTests
     private static MarkCheatDayHandler MarkHandler(AppDbContext db, Guid userId) =>
         new(db, new FakeUser(userId), new FakeClock(Now));
 
-    private static UnmarkCheatDayHandler UnmarkHandler(AppDbContext db, Guid userId) =>
-        new(db, new FakeUser(userId), new FakeClock(Now));
-
     [Fact]
     public async Task MarkCheatDay_NonMember_ThrowsUnauthorized()
     {
@@ -128,41 +125,6 @@ public class CheatDayHandlersTests
         await handler.Handle(new MarkCheatDayCommand(group.Id, "2025-01-16"), default);
 
         var act = () => handler.Handle(new MarkCheatDayCommand(group.Id, "2025-01-16"), default);
-
-        await act.Should().ThrowAsync<BusinessRuleException>();
-    }
-
-    [Fact]
-    public async Task UnmarkCheatDay_Today_RemovesTheDay()
-    {
-        var (db, group, user, _) = await NewContextAsync();
-        var handler = MarkHandler(db, user.Id);
-        await handler.Handle(new MarkCheatDayCommand(group.Id, null), default);
-
-        await UnmarkHandler(db, user.Id).Handle(new UnmarkCheatDayCommand(group.Id, "2025-01-15"), default);
-
-        (await db.CheatDays.CountAsync()).Should().Be(0);
-    }
-
-    [Fact]
-    public async Task UnmarkCheatDay_NonToday_ThrowsBusinessRule()
-    {
-        var (db, group, user, _) = await NewContextAsync();
-        var handler = MarkHandler(db, user.Id);
-        await handler.Handle(new MarkCheatDayCommand(group.Id, "2025-01-16"), default); // ngày mai
-
-        var act = () => UnmarkHandler(db, user.Id).Handle(new UnmarkCheatDayCommand(group.Id, "2025-01-16"), default);
-
-        await act.Should().ThrowAsync<BusinessRuleException>();
-        (await db.CheatDays.CountAsync()).Should().Be(1);
-    }
-
-    [Fact]
-    public async Task UnmarkCheatDay_NotMarked_ThrowsBusinessRule()
-    {
-        var (db, group, user, _) = await NewContextAsync();
-
-        var act = () => UnmarkHandler(db, user.Id).Handle(new UnmarkCheatDayCommand(group.Id, "2025-01-15"), default);
 
         await act.Should().ThrowAsync<BusinessRuleException>();
     }

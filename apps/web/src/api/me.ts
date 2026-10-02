@@ -29,17 +29,10 @@ export const meApi = {
     return api.put<UserDto>("/me/avatar", { publicId }).then((r) => r.data);
   },
 
-  /** POST /me/cheat-days — mark a cheat day (today or within 7 days, 1/week per group). */
+  /** POST /me/cheat-days — mark a cheat day (today or within 7 days, 1/week per group). Không huỷ được sau khi đánh dấu. */
   markCheatDay(groupId: string, date?: string): Promise<CheatDayDto> {
     return api
       .post<CheatDayDto>("/me/cheat-days", { groupId, date: date ?? null })
-      .then((r) => r.data);
-  },
-
-  /** DELETE /me/cheat-days/{date} — unmark (today only). */
-  unmarkCheatDay(groupId: string, date: string): Promise<void> {
-    return api
-      .delete<void>(`/me/cheat-days/${date}`, { params: { groupId } })
       .then((r) => r.data);
   },
 };

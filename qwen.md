@@ -59,7 +59,7 @@ Mỗi ngày, đếm số hoạt động **FAIL** (không check-in, hoặc check-
 
 - Bảng bậc phạt lưu dạng cấu hình (`penalty_tiers` JSONB) theo **nhóm**, chủ nhóm chỉnh được trước khi các challenge bắt đầu.
 - **Không có phạt riêng theo hoạt động**: mọi hoạt động fail đều đếm chung vào bảng bậc trên. (Yêu cầu gốc "Dậy sớm trễ phạt 10k" đã chốt bỏ — chỉ dùng bảng bậc nhóm; `override_penalty` đã xoá khỏi code + DB.)
-- **Cheat day (1/tuần)**: mỗi user tự đánh dấu **1 ngày cheat/tuần (T2–CN, giờ VN)** cho **từng nhóm** (quỹ phạt tính theo nhóm). Đánh dấu được **bất kỳ lúc nào** cho **hôm nay → +7 ngày** (mặc định hôm nay, không lùi quá khứ); **huỷ được trong chính hôm đó** (trước khi chốt ngày). Ngày cheat: không cần check-in, không tính phạt — settlement ghi `daily_result` với 0 fail / 0 phạt, cờ `is_cheat_day = true`, không ghi chi tiết từng hoạt động; bảng live hiện trạng thái trung lập + huy hiệu "🎉 Cheat day".
+- **Cheat day (1/tuần)**: mỗi user tự đánh dấu **1 ngày cheat/tuần (T2–CN, giờ VN)** cho **từng nhóm** (quỹ phạt tính theo nhóm). Đánh dấu được **bất kỳ lúc nào** cho **hôm nay → +7 ngày** (mặc định hôm nay, không lùi quá khứ); **đã đánh dấu thì không huỷ được**. Ngày cheat: không cần check-in, không tính phạt — settlement ghi `daily_result` với 0 fail / 0 phạt, cờ `is_cheat_day = true`, không ghi chi tiết từng hoạt động; bảng live hiện trạng thái trung lập + huy hiệu "🎉 Cheat day".
 
 ### 1.5 Khoá hoạt động theo ngày bắt đầu
 
@@ -500,13 +500,12 @@ Base: `/api`, auth Bearer JWT, lỗi trả `ProblemDetails` (RFC 7807). OpenAPI 
 
 ### Profile
 
-| Method | Path                             | Mô tả                                                                                         |
-| ------ | -------------------------------- | --------------------------------------------------------------------------------------------- |
-| PATCH  | `/me`                            | Đổi tên hiển thị, cài đặt thông báo                                                           |
-| POST   | `/me/avatar/intent`              | Lấy chữ ký upload avatar (crop 1:1, folder `avatars/`)                                        |
-| PUT    | `/me/avatar`                     | `{publicId}` → cập nhật avatar, xoá avatar cũ trên Cloudinary                                 |
-| POST   | `/me/cheat-days`                 | `{groupId, date?}` → đánh dấu cheat day (mặc định hôm nay, tối đa +7 ngày, 1/tuần theo T2–CN) |
-| DELETE | `/me/cheat-days/{date}?groupId=` | Huỷ cheat day — **chỉ cho hôm nay**                                                           |
+| Method | Path                | Mô tả                                                                                                                               |
+| ------ | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| PATCH  | `/me`               | Đổi tên hiển thị, cài đặt thông báo                                                                                                 |
+| POST   | `/me/avatar/intent` | Lấy chữ ký upload avatar (crop 1:1, folder `avatars/`)                                                                              |
+| PUT    | `/me/avatar`        | `{publicId}` → cập nhật avatar, xoá avatar cũ trên Cloudinary                                                                       |
+| POST   | `/me/cheat-days`    | `{groupId, date?}` → đánh dấu cheat day (mặc định hôm nay, tối đa +7 ngày, 1/tuần theo T2–CN) — **không huỷ được sau khi đánh dấu** |
 
 ### Groups
 
@@ -631,7 +630,7 @@ Server đẩy về group:
 ### 7.2 Hôm nay (trang chủ)
 
 - Header: ngày, số hoạt động đã xong / tổng, **tiền phạt dự kiến hôm nay** (tính realtime).
-- **Cheat day**: nút "🎉 Cheat day hôm nay" (ẩn khi tuần này đã dùng hoặc hôm nay đã là cheat day); hôm nay là cheat day → banner xanh "Hôm nay là Cheat Day" + nút "Huỷ cheat day". Hoạt động hiển thị trung lập, phạt dự kiến 0đ.
+- **Cheat day**: nút "🎉 Cheat day hôm nay" (ẩn khi tuần này đã dùng hoặc hôm nay đã là cheat day); hôm nay là cheat day → banner xanh "Hôm nay là Cheat Day" (không có nút huỷ — đã đánh dấu thì giữ nguyên). Hoạt động hiển thị trung lập, phạt dự kiến 0đ.
 - Thẻ từng hoạt động:
   - `DEADLINE`: chỉ nhận check-in từ **2 giờ trước đến 10 phút sau** mốc giờ (mở camera/chọn file): trước khung → "Chưa mở giờ check-in (HH:mm–HH:mm)" + nút disable; trong khung → đếm ngược (nút bật); sau khung → "ĐÃ QUÁ GIỜ" + disable.
   - `DURATION`: thời lượng mục tiêu (VD "60 phút"), nút **Hoàn thành** (tick) mở hộp thoại chụp ảnh; sau check-in hiện ✅ kèm giờ và ảnh đã nộp.

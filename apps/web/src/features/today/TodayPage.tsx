@@ -36,7 +36,6 @@ export function TodayPage() {
   const setServerOffsetMs = useAppStore((s) => s.setServerOffsetMs);
   const queryClient = useQueryClient();
   const [marking, setMarking] = useState(false);
-  const [unmarking, setUnmarking] = useState(false);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["today", groupId],
@@ -85,7 +84,6 @@ export function TodayPage() {
   const penalty = data.expectedPenalty;
 
   const isCheatToday = data.cheatDay === data.date;
-  const cheatDate = data.cheatDay;
   const canMarkCheat =
     data.activeChallenge != null &&
     !isCheatToday &&
@@ -108,23 +106,6 @@ export function TodayPage() {
     }
   }
 
-  async function handleUnmarkCheat(cheatDate: string) {
-    if (groupId == null || unmarking) return;
-    setUnmarking(true);
-    try {
-      await meApi.unmarkCheatDay(groupId, cheatDate);
-      toast.success("Đã huỷ cheat day hôm nay");
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["today", groupId] }),
-        queryClient.invalidateQueries({ queryKey: ["live", groupId] }),
-      ]);
-    } catch (err) {
-      toast.error(getApiErrorMessage(err));
-    } finally {
-      setUnmarking(false);
-    }
-  }
-
   return (
     <div>
       <PageHeader
@@ -141,18 +122,7 @@ export function TodayPage() {
         <Badge variant={penalty > 0 ? "danger" : "success"}>
           Phạt dự kiến: {formatVND(penalty)}
         </Badge>
-        {isCheatToday ? (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={unmarking}
-            onClick={() =>
-              cheatDate != null && void handleUnmarkCheat(cheatDate)
-            }
-          >
-            {unmarking ? "Đang huỷ…" : "Huỷ cheat day"}
-          </Button>
-        ) : canMarkCheat ? (
+        {canMarkCheat ? (
           <Button
             variant="secondary"
             size="sm"
