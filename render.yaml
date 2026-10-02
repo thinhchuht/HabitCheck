@@ -58,8 +58,9 @@ services:
       - key: NODE_VERSION
         value: "20"
       # Build-time (inline vào bundle) — trỏ về API đã deploy.
+      # KHÔNG quên hậu tố /api: client dùng làm baseURL, path gộp thêm sau đó.
       - key: VITE_API_URL
-        value: https://habit-checkin-api.onrender.com
+        value: https://habit-checkin-api.onrender.com/api
       - key: VITE_HUB_URL
         value: https://habit-checkin-api.onrender.com/hubs/live
       - key: VITE_GOOGLE_CLIENT_ID
