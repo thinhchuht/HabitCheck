@@ -46,8 +46,12 @@ public sealed class CreateChallengeHandler(IAppDbContext db, ICurrentUser user, 
             && c.StartDate <= endDate && c.EndDate >= startDate, ct);
         if (overlaps) throw new BusinessRuleException("Kỳ thử thách này bị chồng ngày với một kỳ khác");
 
-        // Luôn tạo ở DRAFT — kể cả start_date = hôm nay — để user kịp thêm hoạt động
-        // trước khi kỳ khoá. Kích hoạt ACTIVE khi dùng (GetToday/CheckIn) hoặc job 00:00.
+        // Ngày bắt đầu phải là ngày mai trở đi — không nhận hôm nay hoặc quá khứ.
+        if (startDate <= clock.TodayLocal)
+            throw new BusinessRuleException("Ngày bắt đầu phải là ngày mai trở đi");
+
+        // Luôn tạo ở DRAFT để user kịp thêm hoạt động trước khi kỳ khoá.
+        // Kích hoạt ACTIVE khi dùng (GetToday/CheckIn) hoặc job 00:00.
         var challenge = new Challenge
         {
             GroupId = cmd.GroupId,
@@ -158,7 +162,7 @@ public sealed class GetChallengeHandler(IAppDbContext db, ICurrentUser user) : I
 
 // ---------- UpdateChallenge (chỉ DRAFT) ----------
 
-public sealed class UpdateChallengeHandler(IAppDbContext db, ICurrentUser user)
+public sealed class UpdateChallengeHandler(IAppDbContext db, ICurrentUser user, IClock clock)
     : IRequestHandler<UpdateChallengeCommand, ChallengeDto>
 {
     public async Task<ChallengeDto> Handle(UpdateChallengeCommand cmd, CancellationToken ct)
@@ -168,7 +172,11 @@ public sealed class UpdateChallengeHandler(IAppDbContext db, ICurrentUser user)
         if (!string.IsNullOrWhiteSpace(cmd.Title))
             ch.Title = cmd.Title!.Trim();
         if (!string.IsNullOrWhiteSpace(cmd.StartDate))
+        {
             ch.StartDate = CreateChallengeHandler.ParseDate(cmd.StartDate, "startDate");
+            if (ch.StartDate <= clock.TodayLocal)
+                throw new BusinessRuleException("Ngày bắt đầu phải là ngày mai trở đi");
+        }
         if (!string.IsNullOrWhiteSpace(cmd.EndDate))
             ch.EndDate = CreateChallengeHandler.ParseDate(cmd.EndDate, "endDate");
 

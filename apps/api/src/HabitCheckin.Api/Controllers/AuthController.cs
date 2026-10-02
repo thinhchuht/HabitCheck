@@ -13,7 +13,8 @@ namespace HabitCheckin.Api.Controllers;
 public sealed class AuthController(ISender sender, IWebHostEnvironment env) : ControllerBase
 {
     private const string RefreshCookie = "hc_refresh";
-    private static readonly TimeSpan RefreshLifetime = TimeSpan.FromDays(30);
+    // Giữ cùng tuổi với Application.Auth.RefreshLifetime.Days (365 ngày — "vĩnh viễn" thực dụng).
+    private static readonly TimeSpan RefreshLifetime = TimeSpan.FromDays(365);
 
     [HttpPost("google")]
     [AllowAnonymous]

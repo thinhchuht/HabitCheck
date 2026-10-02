@@ -32,9 +32,12 @@ export function useLiveEvents(): void {
   const queryClient = useQueryClient();
   const groupId = useAppStore((s) => s.selectedGroupId);
   const userId = useAuthStore((s) => s.user?.id ?? null);
+  // Token mới sau mỗi lần refresh → startRealtime rebuild kết nối bằng token
+  // mới, tránh reconnect lặp 401 với JWT cũ.
+  const accessToken = useAuthStore((s) => s.accessToken);
 
   useEffect(() => {
-    if (!groupId) return;
+    if (!groupId || !accessToken) return;
 
     const invalidate = (keys: ReadonlyArray<readonly unknown[]>) => {
       for (const key of keys) {
@@ -147,5 +150,5 @@ export function useLiveEvents(): void {
       unsubs.forEach((u) => u());
       void invokeHub("LeaveGroup", groupId);
     };
-  }, [groupId, userId, queryClient]);
+  }, [groupId, userId, accessToken, queryClient]);
 }

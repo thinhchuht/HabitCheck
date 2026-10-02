@@ -83,6 +83,9 @@ const activitySchema = z
 
 type ActivityFormValues = z.infer<typeof activitySchema>;
 
+/** 2 kiểu đơn vị thay thế nhau: thời gian (theo kiểu thời gian) hoặc tự chọn đơn vị. */
+type UnitKind = "TIME" | "CUSTOM";
+
 function toTimeInput(v: string | null): string {
   return v ? v.slice(0, 5) : "";
 }
@@ -138,12 +141,13 @@ function Time24Selects({
   );
 }
 
-function toInput(v: ActivityFormValues): ActivityInput {
+function toInput(v: ActivityFormValues, unitKind: UnitKind): ActivityInput {
   const input: ActivityInput = {
     name: v.name.trim(),
     description: v.description.trim() || null,
     icon: v.icon.trim() || null,
-    unit: v.unit.trim() || null,
+    // Kiểu thời gian → không lưu đơn vị riêng; kiểu tự chọn → lưu text.
+    unit: unitKind === "CUSTOM" ? v.unit.trim() || null : null,
     type: v.type,
     // Video không còn hỗ trợ — bằng chứng check-in chỉ là ảnh.
     proofType: "PHOTO",
@@ -177,6 +181,7 @@ export function ActivityFormDialog({
   const queryClient = useQueryClient();
   const groupId = useAppStore((s) => s.selectedGroupId);
   const [formError, setFormError] = useState<string | null>(null);
+  const [unitKind, setUnitKind] = useState<UnitKind>("TIME");
 
   const isEdit = activity != null;
 
@@ -205,6 +210,7 @@ export function ActivityFormDialog({
   useEffect(() => {
     if (open) {
       setFormError(null);
+      setUnitKind(activity?.unit ? "CUSTOM" : "TIME");
       reset(
         activity
           ? {
@@ -259,7 +265,7 @@ export function ActivityFormDialog({
 
   const onSubmit = handleSubmit((values) => {
     setFormError(null);
-    mutation.mutate(toInput(values));
+    mutation.mutate(toInput(values, unitKind));
   });
 
   const fieldError = (key: keyof ActivityFormValues) =>
@@ -291,18 +297,45 @@ export function ActivityFormDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="act-unit">Đơn vị / mục tiêu (tùy chọn)</Label>
-            <Input
-              id="act-unit"
-              placeholder="VD: 10000 bước, 5 km"
-              maxLength={50}
-              {...register("unit")}
-            />
-            <p className="text-xs text-slate-400">
-              Ghi chú mục tiêu hiển thị kèm hoạt động, VD: đi 10000 bước, chạy 5
-              km.
-            </p>
-            {fieldError("unit")}
+            <Label>Đơn vị</Label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={unitKind === "TIME" ? "default" : "outline"}
+                onClick={() => setUnitKind("TIME")}
+              >
+                ⏱ Thời gian
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={unitKind === "CUSTOM" ? "default" : "outline"}
+                onClick={() => setUnitKind("CUSTOM")}
+              >
+                ✏️ Tự chọn đơn vị
+              </Button>
+            </div>
+            {unitKind === "TIME" ? (
+              <p className="text-xs text-slate-400">
+                Đơn vị là thời gian — tự theo kiểu thời gian bên dưới (phút cho
+                thời lượng, giờ HH:mm cho giờ chính xác / khung giờ).
+              </p>
+            ) : (
+              <>
+                <Input
+                  id="act-unit"
+                  placeholder="VD: 10000 bước, 5 km"
+                  maxLength={50}
+                  {...register("unit")}
+                />
+                <p className="text-xs text-slate-400">
+                  Ghi chú mục tiêu hiển thị kèm hoạt động, VD: đi 10000 bước,
+                  chạy 5 km.
+                </p>
+                {fieldError("unit")}
+              </>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">

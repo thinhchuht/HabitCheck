@@ -64,6 +64,7 @@ Mỗi ngày, đếm số hoạt động **FAIL** (không check-in, hoặc check-
 ### 1.5 Khoá hoạt động theo ngày bắt đầu
 
 - Challenge có trạng thái: `DRAFT` → `ACTIVE` → `COMPLETED` (hoặc `CANCELLED` khi còn DRAFT).
+- **Ngày bắt đầu phải là ngày mai trở đi** (khi tạo và khi sửa DRAFT) — không nhận hôm nay hoặc quá khứ.
 - Khi `DRAFT` (hôm nay < `start_date`): thêm/sửa/xoá hoạt động thoải mái, sửa ngày bắt đầu/kết thúc.
 - Từ 00:00 ngày `start_date` (giờ `Asia/Ho_Chi_Minh`): chuyển `ACTIVE`, **khoá toàn bộ hoạt động** (không thêm/sửa/xoá, không đổi ngày). Server chặn ở tầng Application và có thêm trigger DB làm lớp bảo vệ thứ hai.
 - Sau `end_date` và chốt ngày cuối → `COMPLETED`.
@@ -121,7 +122,7 @@ sequenceDiagram
     U->>API: POST /api/auth/google {idToken}
     API->>API: GoogleJsonWebSignature.ValidateAsync (audience = ClientId)
     API->>DB: upsert user theo google_sub
-    API-->>U: accessToken (15') + refreshToken (httpOnly cookie, 30 ngày)
+    API-->>U: accessToken (7 ngày) + refreshToken (httpOnly cookie, 365 ngày)
 ```
 
 ### 2.2 Luồng check-in có bằng chứng
@@ -329,7 +330,7 @@ CREATE TABLE activities (
   name                text NOT NULL,
   description         text,
   icon                text,
-  unit                text,           -- đơn vị/mục tiêu tự do, VD "10000 bước", "5 km"
+  unit                text,           -- đơn vị tự chọn (VD "10000 bước", "5 km"); null = đơn vị thời gian
   type                activity_type NOT NULL,
   deadline_time       time,          -- DEADLINE
   grace_minutes       int NOT NULL DEFAULT 0,   -- không còn dùng (quy tắc ±5 phút cố định), giữ cột DB
@@ -522,17 +523,17 @@ Base: `/api`, auth Bearer JWT, lỗi trả `ProblemDetails` (RFC 7807). OpenAPI 
 
 ### Challenges & Activities
 
-| Method | Path                                | Mô tả                                  |
-| ------ | ----------------------------------- | -------------------------------------- |
-| POST   | `/challenges`                       | `{groupId, title, startDate, endDate}` |
-| GET    | `/challenges/mine?groupId=`         | Danh sách của tôi                      |
-| GET    | `/challenges/group/{groupId}`       | Kỳ của mọi thành viên nhóm (chỉ xem)   |
-| PATCH  | `/challenges/{id}`                  | Chỉ khi DRAFT                          |
-| DELETE | `/challenges/{id}`                  | Huỷ khi DRAFT                          |
-| POST   | `/challenges/{id}/activities`       | Chỉ khi DRAFT                          |
-| PUT    | `/challenges/{id}/activities/{aid}` | Chỉ khi DRAFT                          |
-| DELETE | `/challenges/{id}/activities/{aid}` | Chỉ khi DRAFT                          |
-| PUT    | `/challenges/{id}/activities/order` | Sắp xếp                                |
+| Method | Path                                | Mô tả                                                                        |
+| ------ | ----------------------------------- | ---------------------------------------------------------------------------- |
+| POST   | `/challenges`                       | `{groupId, title, startDate, endDate}` — `startDate` phải là ngày mai trở đi |
+| GET    | `/challenges/mine?groupId=`         | Danh sách của tôi                                                            |
+| GET    | `/challenges/group/{groupId}`       | Kỳ của mọi thành viên nhóm (chỉ xem)                                         |
+| PATCH  | `/challenges/{id}`                  | Chỉ khi DRAFT; `startDate` phải là ngày mai trở đi                           |
+| DELETE | `/challenges/{id}`                  | Huỷ khi DRAFT                                                                |
+| POST   | `/challenges/{id}/activities`       | Chỉ khi DRAFT                                                                |
+| PUT    | `/challenges/{id}/activities/{aid}` | Chỉ khi DRAFT                                                                |
+| DELETE | `/challenges/{id}/activities/{aid}` | Chỉ khi DRAFT                                                                |
+| PUT    | `/challenges/{id}/activities/order` | Sắp xếp                                                                      |
 
 ### Check-in
 
@@ -638,8 +639,8 @@ Server đẩy về group:
 
 ### 7.3 Kỳ thử thách (thiết lập)
 
-- Chọn ngày bắt đầu / kết thúc (date range picker).
-- Form thêm hoạt động: tên, đơn vị/mục tiêu tự do (tuỳ chọn, VD "10000 bước", "5 km"), icon, kiểu thời gian, tham số, loại bằng chứng. `DEADLINE` chỉ đặt mốc giờ — cửa sổ check-in cố định 2h trước – 10 phút sau mốc (không còn ô "chậm thêm" `grace_minutes`).
+- Chọn ngày bắt đầu / kết thúc — **ngày bắt đầu phải là ngày mai trở đi** (date picker có min = ngày mai).
+- Form thêm hoạt động: tên, **đơn vị — 2 kiểu thay thế nhau: "Thời gian"** (đơn vị theo kiểu thời gian, không lưu text riêng) **hoặc "Tự chọn"** (text tự do, VD "10000 bước", "5 km"), icon, kiểu thời gian, tham số, loại bằng chứng. `DEADLINE` chỉ đặt mốc giờ — cửa sổ check-in cố định 2h trước – 10 phút sau mốc (không còn ô "chậm thêm" `grace_minutes`).
 - Xem trước bảng phạt của nhóm.
 - Badge "Sẽ khoá lúc 00:00 dd/MM" và hộp xác nhận khi DRAFT; khi ACTIVE hiển thị chế độ chỉ đọc 🔒.
 - Lịch sử các kỳ đã qua.
@@ -894,7 +895,7 @@ public UploadSignature Sign(UploadIntent intent, string folder)
 - Chỉ chấp nhận Google ID token có `aud` = Client ID, `email_verified = true`. (Tuỳ chọn: whitelist domain hoặc danh sách email.)
 - Tài khoản admin (đăng nhập bằng username/mật khẩu): mật khẩu băm **PBKDF2-SHA256, 210k iterations, salt 16B** (format `PBKDF2-SHA256$<iter>$<saltB64>$<hashB64>`), so khớp bằng `FixedTimeEquals`. Lỗi đăng nhập trả một thông báo chung, không tiết lộ tài khoản có tồn tại hay không.
 - Seeder chạy khi API khởi động (sau migration): tạo admin theo `Admin:Username` (mặc định `thinhchuht`); mật khẩu lấy từ `Admin:Password` (env/appsettings) nếu có — mỗi lần khởi động có giá trị này, hash được cập nhật (đường xoay mật khẩu) — nếu không có thì dùng hash mặc định nhúng sẵn. **Repo không chứa plaintext mật khẩu.**
-- Access token JWT 15 phút; thêm claim `role = "admin"` khi `is_admin = true`; refresh token lưu hash, cookie `HttpOnly; Secure; SameSite=Strict`, xoay vòng mỗi lần refresh.
+- Access token JWT **7 ngày** (`Jwt__AccessMinutes`); thêm claim `role = "admin"` khi `is_admin = true`; refresh token **365 ngày** — coi như "vĩnh viễn" (trình duyệt giới hạn tuổi cookie ~400 ngày), lưu hash, cookie `HttpOnly; Secure; SameSite=Strict`, xoay vòng mỗi lần refresh (mỗi refresh phát hành token + cookie mới 365 ngày).
 - **Không tự đăng xuất**: 401 mà refresh thất bại thì client **không** xoá session / không đá về trang login — chỉ để request đó lỗi, các request sau thử refresh lại (phiên tự hồi khi server/cookie bình thường). Chỉ đăng xuất khi user bấm nút Đăng xuất hoặc khi bị admin chặn (403 banned).
 - Policy: `GroupMember`, `GroupAdmin`, `ChallengeOwner`, `Admin` (RequireRole("admin")).
 - **User bị chặn** (`is_banned = true`): `BannedUserMiddleware` (chạy sau `UseAuthentication`) chặn mọi request có JWT hợp lệ (ngoại trừ `/api/auth/*`) bằng 403 ProblemDetails; luồng refresh token cũng từ chối user bị chặn nên không thể tự "hồi sinh" access token. Client nhận 403 loại "banned" → xoá session, toast, về trang login.

@@ -12,7 +12,9 @@ public sealed class JwtOptions
 {
     public const string SectionName = "Jwt";
     public string Secret { get; set; } = string.Empty;
-    public int AccessMinutes { get; set; } = 15;
+    // 7 ngày — đủ "vĩnh viễn" để user không bao giờ thấy 401 trong khi dùng;
+    // refresh cookie (365 ngày) là lớp dự phòng nếu token hết hạn giữa chừng.
+    public int AccessMinutes { get; set; } = 10080;
     public string Issuer { get; set; } = "habit-checkin";
     public string Audience { get; set; } = "habit-checkin-web";
 }

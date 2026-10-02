@@ -48,10 +48,12 @@ function sortedActivities(challenge: ChallengeDto): ActivityDto[] {
 
 function CreateForm({ groupId }: { groupId: string }) {
   const queryClient = useQueryClient();
+  // Ngày bắt đầu sớm nhất là ngày mai — không nhận hôm nay hoặc quá khứ.
+  const minStartDate = vnNow().add(1, "day").format("YYYY-MM-DD");
   const [title, setTitle] = useState("");
-  const [startDate, setStartDate] = useState(vnNow().format("YYYY-MM-DD"));
+  const [startDate, setStartDate] = useState(minStartDate);
   const [endDate, setEndDate] = useState(
-    vnNow().add(7, "day").format("YYYY-MM-DD"),
+    vnNow().add(8, "day").format("YYYY-MM-DD"),
   );
 
   const mutation = useMutation({
@@ -69,7 +71,10 @@ function CreateForm({ groupId }: { groupId: string }) {
     onError: (err) => toast.error(getApiErrorMessage(err, "Tạo kỳ thất bại")),
   });
 
-  const invalid = title.trim().length === 0 || startDate > endDate;
+  const invalid =
+    title.trim().length === 0 ||
+    startDate < minStartDate ||
+    startDate > endDate;
 
   return (
     <Card>
@@ -77,8 +82,9 @@ function CreateForm({ groupId }: { groupId: string }) {
         <CardTitle>Tạo kỳ thử thách</CardTitle>
         <CardDescription>
           Mỗi kỳ là 1 bảng lịch hoạt động trong ngày (giờ chính xác hoặc thời
-          lượng), lặp lại hằng ngày từ ngày bắt đầu đến ngày kết thúc. Từ 00:00
-          ngày bắt đầu, toàn bộ hoạt động sẽ bị khoá và không thể sửa.
+          lượng), lặp lại hằng ngày từ ngày bắt đầu đến ngày kết thúc. Ngày bắt
+          đầu sớm nhất là ngày mai. Từ 00:00 ngày bắt đầu, toàn bộ hoạt động sẽ
+          bị khoá và không thể sửa.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -106,6 +112,7 @@ function CreateForm({ groupId }: { groupId: string }) {
                 id="ch-start"
                 type="date"
                 value={startDate}
+                min={minStartDate}
                 onChange={(e) => setStartDate(e.target.value)}
               />
             </div>
@@ -115,6 +122,7 @@ function CreateForm({ groupId }: { groupId: string }) {
                 id="ch-end"
                 type="date"
                 value={endDate}
+                min={startDate || minStartDate}
                 onChange={(e) => setEndDate(e.target.value)}
               />
             </div>
@@ -237,6 +245,7 @@ function DraftSection({
                   id="draft-start"
                   type="date"
                   value={startDate}
+                  min={vnNow().add(1, "day").format("YYYY-MM-DD")}
                   onChange={(e) => setStartDate(e.target.value)}
                 />
               </div>

@@ -8,6 +8,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HabitCheckin.Application.Auth;
 
+/// <summary>
+/// Thời hạn refresh token: 365 ngày — coi như "vĩnh viễn" (trình duyệt giới hạn
+/// tuổi cookie ~400 ngày; mỗi lần refresh xoay vòng token + cookie mới).
+/// </summary>
+internal static class RefreshLifetime
+{
+    public const int Days = 365;
+}
+
 // ---------- Google login ----------
 
 public sealed record GoogleLoginCommand(string IdToken) : IRequest<GoogleLoginResult>;
@@ -50,7 +59,7 @@ public sealed class GoogleLoginHandler(
         {
             UserId = user.Id,
             TokenHash = TokenHashing.Sha256Hex(refreshToken),
-            ExpiresAt = clock.UtcNow.AddDays(30)
+            ExpiresAt = clock.UtcNow.AddDays(RefreshLifetime.Days)
         });
 
         await db.SaveChangesAsync(ct);
@@ -91,7 +100,7 @@ public sealed class PasswordLoginHandler(IAppDbContext db, IClock clock, IJwtTok
         {
             UserId = user.Id,
             TokenHash = TokenHashing.Sha256Hex(refreshToken),
-            ExpiresAt = clock.UtcNow.AddDays(30)
+            ExpiresAt = clock.UtcNow.AddDays(RefreshLifetime.Days)
         });
 
         await db.SaveChangesAsync(ct);
@@ -130,7 +139,7 @@ public sealed class RefreshTokenHandler(IAppDbContext db, IClock clock, IJwtToke
         {
             UserId = rt.UserId,
             TokenHash = TokenHashing.Sha256Hex(newToken),
-            ExpiresAt = clock.UtcNow.AddDays(30)
+            ExpiresAt = clock.UtcNow.AddDays(RefreshLifetime.Days)
         });
         await db.SaveChangesAsync(ct);
 
