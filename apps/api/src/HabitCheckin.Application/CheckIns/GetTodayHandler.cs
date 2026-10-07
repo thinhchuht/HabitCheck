@@ -68,7 +68,8 @@ public sealed class GetTodayHandler(IAppDbContext db, ICurrentUser user, IClock 
                 string? deadlineAt = null;
                 if (a.Type == ActivityType.Deadline && a.DeadlineTime is TimeOnly t)
                     // Mốc giờ chính xác — frontend tự tính cửa sổ check-in (2h trước – 10 phút sau mốc).
-                    deadlineAt = Fmt.Iso(ActivityEvaluator.ToInstant(today, t, tz));
+                    // Mốc sớm (< 02:00) neo sang ngày sau: mốc 0:00 của ngày X = X+1 00:00 (cửa sổ 22:00 → 00:10).
+                    deadlineAt = Fmt.Iso(ActivityEvaluator.DeadlineAnchor(today, t, tz));
                 else if (a.Type == ActivityType.Window && a.WindowEnd is TimeOnly w)
                     deadlineAt = Fmt.Iso(ActivityEvaluator.ToInstant(today, w, tz));
 

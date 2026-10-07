@@ -34,6 +34,7 @@
 | `WINDOW` (khung giờ)    | Phải check-in trong khung giờ. VD: Uống nước 12:00–13:00                         | `window_start`, `window_end`                                                                                                 | Có check-in trong khung                                                  |
 
 - **Đơn vị tự chọn** (VD "10000 bước", "5 km"): hoạt động lưu dạng `DURATION` với `unit` text và `target_minutes = NULL` — **không cần kiểu thời gian / tham số giờ**, tick + chụp 1 ảnh bất kỳ lúc nào trong ngày là đạt. `target_minutes` chỉ mang tính mô tả, không dùng để chấm điểm.
+- **Mốc sớm (`deadline_time` < 02:00) neo sang 0:00 sáng hôm sau**: vì cửa sổ "2 giờ trước" xuyên qua nửa đêm (VD mốc 0:00 → cửa sổ 22:00–00:10), mốc 0:00 của ngày X được hiểu là **0:00 sáng X+1** (tức tối ngày X). Vậy cửa sổ của ngày X với mốc 0:00 là `[X 22:00 → X+1 00:10]`: check-in buổi tối ngày X (22:00–23:59) và 10 phút đầu sau 0:00 (00:00–00:10) đều tính cho **ngày X** (check-in buổi tối là chính — người dùng check-in "hôm nay" tối hôm trước mốc 0:00, không phải chờ qua nửa đêm). Check-in hợp lệ cho ngày X = check-in trong cửa sổ đó, thuộc về ngày X. Mốc ≥ 02:00 không đổi (cửa sổ không qua nửa đêm).
 
 ### 1.3 Bằng chứng (proof)
 
@@ -77,8 +78,8 @@ Mỗi ngày, đếm số hoạt động **FAIL** (không check-in, hoặc check-
 - Múi giờ cố định: `Asia/Ho_Chi_Minh`.
 - **00:05 hằng ngày**: job tính kết quả _tạm thời_ (`PROVISIONAL`) cho ngày hôm trước.
   - Phiên `DURATION` OPEN cũ (tạo trước thay đổi tick + 1 ảnh) chưa check-out đến 23:59:59 → tự đóng, **không tính** (trạng thái `ABANDONED`). Từ nay DURATION không tạo phiên OPEN.
-- **12:00 hằng ngày**: job chốt `FINAL`, ghi tiền phạt vào sổ quỹ (ledger).
-- Không có cửa sổ khiếu nại / duyệt: bằng chứng hợp lệ ngay khi upload (xem §1.3), nên kết quả `PROVISIONAL` cơ bản đã ổn định đến lúc chốt `FINAL`.
+- **12:00 hằng ngày**: job chốt `FINAL` — **tính lại kết quả** trước khi khoá (bắt check-in đến sau job 00:05, VD cửa sổ mốc 0:00 đóng lúc 00:10) rồi ghi tiền phạt vào sổ quỹ (ledger).
+- Không có cửa sổ khiếu nại / duyệt: bằng chứng hợp lệ ngay khi upload (xem §1.3), nên kết quả `PROVISIONAL` cơ bản đã ổn định đến lúc chốt `FINAL` — ngoại lệ duy nhất là cửa sổ mốc sớm (< 02:00) đóng sau 00:05 (xem §1.2), được job 12:00 tính lại bù lại.
 
 ---
 
@@ -539,13 +540,13 @@ Base: `/api`, auth Bearer JWT, lỗi trả `ProblemDetails` (RFC 7807). OpenAPI 
 
 ### Check-in
 
-| Method | Path                                  | Mô tả                                                                                                           |
-| ------ | ------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| GET    | `/today?groupId=`                     | Hoạt động hôm nay + trạng thái, check-in trong ngày (groupId bắt buộc)                                          |
-| POST   | `/uploads/intent`                     | `{activityId, kind}` → chữ ký Cloudinary                                                                        |
-| POST   | `/checkins`                           | `{activityId, intentId, publicId, note}` — DEADLINE: chỉ nhận từ 2h trước đến 10 phút sau mốc giờ, khác thì 422 |
-| POST   | `/checkins/{id}/checkout`             | `{intentId, publicId}`                                                                                          |
-| GET    | `/checkins?userId=&date=&activityId=` | Lịch sử (cùng nhóm mới xem được)                                                                                |
+| Method | Path                                  | Mô tả                                                                                                                                                                                                       |
+| ------ | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/today?groupId=`                     | Hoạt động hôm nay + trạng thái, check-in trong ngày (groupId bắt buộc)                                                                                                                                      |
+| POST   | `/uploads/intent`                     | `{activityId, kind}` → chữ ký Cloudinary                                                                                                                                                                    |
+| POST   | `/checkins`                           | `{activityId, intentId, publicId, note}` — DEADLINE: chỉ nhận trong cửa sổ [mốc − 2h, mốc + 10 phút] của ngày tương ứng (mốc < 02:00 neo sang ngày hôm sau, check-in thuộc về ngày đó — §1.2), khác thì 422 |
+| POST   | `/checkins/{id}/checkout`             | `{intentId, publicId}`                                                                                                                                                                                      |
+| GET    | `/checkins?userId=&date=&activityId=` | Lịch sử (cùng nhóm mới xem được)                                                                                                                                                                            |
 
 ### Bằng chứng (trang check-in — chỉ đọc)
 
@@ -635,7 +636,7 @@ Server đẩy về group:
 - Header: ngày, số hoạt động đã xong / tổng, **tiền phạt dự kiến hôm nay** (tính realtime).
 - **Cheat day**: nút "🎉 Cheat day hôm nay" (ẩn khi tuần này đã dùng hoặc hôm nay đã là cheat day); hôm nay là cheat day → banner xanh "Hôm nay là Cheat Day" (không có nút huỷ — đã đánh dấu thì giữ nguyên). Hoạt động hiển thị trung lập, phạt dự kiến 0đ.
 - Thẻ từng hoạt động:
-  - `DEADLINE`: chỉ nhận check-in từ **2 giờ trước đến 10 phút sau** mốc giờ (mở camera/chọn file): trước khung → "Chưa mở giờ check-in (HH:mm–HH:mm)" + nút disable; trong khung → đếm ngược (nút bật); sau khung → "ĐÃ QUÁ GIỜ" + disable.
+  - `DEADLINE`: chỉ nhận check-in từ **2 giờ trước đến 10 phút sau** mốc giờ (mở camera/chọn file): trước khung → "Chưa mở giờ check-in (HH:mm–HH:mm)" + nút disable; trong khung → đếm ngược (nút bật); sau khung → "ĐÃ QUÁ GIỜ" + disable. Thẻ tính cửa sổ từ `deadlineAt` do server trả (mốc sớm < 02:00 đã được neo sang 0:00 sáng hôm sau — VD mốc 0:00 → cửa sổ tối hôm nay 22:00–00:10, check-in tính cho hôm nay, xem §1.2).
   - `DURATION`: thời lượng mục tiêu (VD "60 phút"), nút **Hoàn thành** (tick) mở hộp thoại chụp ảnh; sau check-in hiện ✅ kèm giờ và ảnh đã nộp.
   - Hiển thị ảnh đã nộp.
 
@@ -732,6 +733,22 @@ public static class ActivityEvaluator
     /// <summary>Cửa sổ check-in DEADLINE: muộn nhất N phút sau mốc giờ (10 phút).</summary>
     public const int DeadlineLateMinutes = 10;
 
+    /// <summary>
+    /// Ngày neo của mốc: mốc sớm (< 02:00 — cửa sổ "2 giờ trước" xuyên qua nửa đêm)
+    /// neo sang ngày hôm sau — mốc 0:00 của ngày X là 0:00 sáng X+1.
+    /// </summary>
+    public static DateOnly DeadlineAnchorDay(DateOnly day, TimeOnly deadlineTime)
+        => deadlineTime < new TimeOnly(2, 0) ? day.AddDays(1) : day;
+
+    public static DateTimeOffset DeadlineAnchor(DateOnly day, TimeOnly deadlineTime, TimeZoneInfo tz)
+        => ToInstant(DeadlineAnchorDay(day, deadlineTime), deadlineTime, tz);
+
+    /// <summary>Cửa sổ check-in DEADLINE của ngày: [anchor − 2h, anchor + 10 phút].</summary>
+    public static (DateTimeOffset Start, DateTimeOffset End) DeadlineWindow(
+        DateOnly day, TimeOnly deadlineTime, TimeZoneInfo tz)
+        => (DeadlineAnchor(day, deadlineTime, tz).AddMinutes(-DeadlineEarlyMinutes),
+            DeadlineAnchor(day, deadlineTime, tz).AddMinutes(DeadlineLateMinutes));
+
     public static ActivityEvaluation Evaluate(Activity a, DateOnly date, IReadOnlyList<CheckIn> dayCheckins, TimeZoneInfo tz)
     {
         var valid = dayCheckins.Where(c => c.ActivityId == a.Id && c.Status != CheckInStatus.Rejected).ToList();
@@ -743,7 +760,7 @@ public static class ActivityEvaluator
             {
                 var first = valid.MinBy(c => c.CheckinAt);
                 if (first is null) return new(a.Id, false, rejectedOnly ? "REJECTED" : "MISSING", null, null);
-                var limit = ToInstant(date, a.DeadlineTime!.Value.AddMinutes(DeadlineLateMinutes), tz);
+                var limit = DeadlineAnchor(date, a.DeadlineTime!.Value, tz).AddMinutes(DeadlineLateMinutes);
                 return first.CheckinAt <= limit
                     ? new(a.Id, true, null, null, first.CheckinAt)
                     : new(a.Id, false, "LATE", null, first.CheckinAt);
@@ -813,18 +830,34 @@ public async Task<CheckInDto> Handle(CheckInCommand cmd, CancellationToken ct)
         today < activity.Challenge.StartDate || today > activity.Challenge.EndDate)
         throw new BusinessRuleException("Challenge không hoạt động hôm nay");
 
-    // DEADLINE: chỉ nhận check-in từ 2 giờ trước mốc đến 10 phút sau mốc
-    // (tính trên DateTimeOffset để mốc 00:01 không tràn TimeOnly khi lùi cửa sổ sang ngày trước).
+    // DEADLINE: chỉ nhận check-in trong cửa sổ [mốc − 2h, mốc + 10 phút] của MỘT ngày.
+    // Mốc sớm (< 02:00) neo sang 0:00 sáng hôm sau (xem §1.2) — với mốc 0:00 thì
+    // cửa sổ ngày hôm nay mở 22:00 tối nay, còn 10 phút đầu sau 0:00 thuộc về cửa sổ
+    // CỦA NGÀY HÔM QUA. Mỗi thời điểm chỉ rơi vào đúng 1 cửa sổ (cửa sổ các ngày
+    // liên tiếp không giao nhau) → dò 2 ứng viên: hôm nay rồi hôm qua.
+    DateOnly targetDay = today;
     if (activity.Type == ActivityType.Deadline && activity.DeadlineTime is TimeOnly dl)
     {
-        var winStart = Domain.Services.ActivityEvaluator.ToInstant(today, dl, clock.LocalTimeZone)
-            .AddMinutes(-Domain.Services.ActivityEvaluator.DeadlineEarlyMinutes);
-        var winEnd = Domain.Services.ActivityEvaluator.ToInstant(today, dl, clock.LocalTimeZone)
-            .AddMinutes(Domain.Services.ActivityEvaluator.DeadlineLateMinutes);
-        if (now < winStart)
-            throw new BusinessRuleException($"Chưa đến giờ check-in '{activity.Name}': chỉ nhận trong khoảng {winStart:HH:mm}–{winEnd:HH:mm} (sớm nhất 2 giờ trước mốc {dl:HH:mm}, muộn nhất 10 phút sau)");
-        if (now > winEnd)
-            throw new BusinessRuleException($"Quá giờ check-in '{activity.Name}': chỉ nhận trong khoảng {winStart:HH:mm}–{winEnd:HH:mm} (sớm nhất 2 giờ trước mốc {dl:HH:mm}, muộn nhất 10 phút sau)");
+        var (winStart, winEnd) = Domain.Services.ActivityEvaluator.DeadlineWindow(today, dl, clock.LocalTimeZone);
+        if (now >= winStart && now <= winEnd)
+        {
+            targetDay = today;
+        }
+        else
+        {
+            var (prevStart, prevEnd) = Domain.Services.ActivityEvaluator.DeadlineWindow(
+                today.AddDays(-1), dl, clock.LocalTimeZone);
+            if (now >= prevStart && now <= prevEnd)
+            {
+                targetDay = today.AddDays(-1);
+            }
+            else if (now < winStart)
+                throw new BusinessRuleException($"Chưa đến giờ check-in '{activity.Name}': chỉ nhận trong khoảng {winStart:HH:mm}–{winEnd:HH:mm} (sớm nhất 2 giờ trước mốc {dl:HH:mm}, muộn nhất 10 phút sau)");
+            else
+                throw new BusinessRuleException($"Quá giờ check-in '{activity.Name}': chỉ nhận trong khoảng {winStart:HH:mm}–{winEnd:HH:mm} (sớm nhất 2 giờ trước mốc {dl:HH:mm}, muộn nhất 10 phút sau)");
+        }
+        if (targetDay < activity.Challenge.StartDate || targetDay > activity.Challenge.EndDate)
+            throw new BusinessRuleException("Kỳ thử thách không hoạt động trong ngày của lần check-in này");
     }
 
     var intent = await _db.UploadIntents.SingleOrDefaultAsync(i =>
@@ -834,10 +867,10 @@ public async Task<CheckInDto> Handle(CheckInCommand cmd, CancellationToken ct)
 
     var asset = await _media.VerifyAsync(cmd.PublicId, activity.ProofType, intent.IntentAt, ct); // kiểm tra tồn tại, loại, dung lượng, created_at trong 15'
     if (await _db.CheckIns.AnyAsync(c => c.ActivityId == activity.Id && c.UserId == _user.Id
-                                         && c.LocalDate == today && c.Status != CheckInStatus.Rejected, ct))
+                                         && c.LocalDate == targetDay && c.Status != CheckInStatus.Rejected, ct))
         throw new ConflictException("Hoạt động đã có check-in hợp lệ trong ngày");
 
-    var checkin = CheckIn.Create(activity, _user.Id, today, intent.IntentAt, asset, cmd.Note);
+    var checkin = CheckIn.Create(activity, _user.Id, targetDay, intent.IntentAt, asset, cmd.Note);
     intent.UsedAt = now;
     _db.CheckIns.Add(checkin);
     await _db.SaveChangesAsync(ct);
@@ -849,13 +882,13 @@ public async Task<CheckInDto> Handle(CheckInCommand cmd, CancellationToken ct)
 
 ### 8.4 Job định kỳ (Hangfire)
 
-| Job                      | Cron (Asia/Ho_Chi_Minh) | Việc làm                                                                                            |
-| ------------------------ | ----------------------- | --------------------------------------------------------------------------------------------------- |
-| `ChallengeActivationJob` | `0 0 * * *`             | DRAFT có `start_date = today` → ACTIVE, set `locked_at`; `end_date < today` & đã FINAL → COMPLETED  |
-| `DailySettlementJob`     | `5 0 * * *`             | Đóng phiên OPEN của hôm qua → ABANDONED; tính `daily_results` PROVISIONAL; đẩy `DailyResultUpdated` |
-| `FinalizeJob`            | `0 12 * * *`            | Chuyển PROVISIONAL → FINAL, ghi `penalty_ledger` (idempotent nhờ `UNIQUE daily_result_id`)          |
-| `ReminderJob`            | `*/5 * * * *`           | Nhắc trước hạn `DEADLINE`, nhắc tối nếu `DURATION` chưa check-in (Web Push / email)                 |
-| `OrphanMediaCleanupJob`  | `0 3 * * *`             | Xoá asset Cloudinary không gắn check-in sau 24h                                                     |
+| Job                      | Cron (Asia/Ho_Chi_Minh) | Việc làm                                                                                                                                                          |
+| ------------------------ | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ChallengeActivationJob` | `0 0 * * *`             | DRAFT có `start_date = today` → ACTIVE, set `locked_at`; `end_date < today` & đã FINAL → COMPLETED                                                                |
+| `DailySettlementJob`     | `5 0 * * *`             | Đóng phiên OPEN của hôm qua → ABANDONED; tính `daily_results` PROVISIONAL; đẩy `DailyResultUpdated`                                                               |
+| `FinalizeJob`            | `0 12 * * *`            | Tính lại kết quả (bắt check-in đến sau job 00:05, VD cửa sổ mốc 0:00), chuyển PROVISIONAL → FINAL, ghi `penalty_ledger` (idempotent nhờ `UNIQUE daily_result_id`) |
+| `ReminderJob`            | `*/5 * * * *`           | Nhắc trước hạn `DEADLINE`, nhắc tối nếu `DURATION` chưa check-in (Web Push / email)                                                                               |
+| `OrphanMediaCleanupJob`  | `0 3 * * *`             | Xoá asset Cloudinary không gắn check-in sau 24h                                                                                                                   |
 
 ```csharp
 RecurringJob.AddOrUpdate<DailySettlementJob>("daily-settlement", j => j.RunAsync(),

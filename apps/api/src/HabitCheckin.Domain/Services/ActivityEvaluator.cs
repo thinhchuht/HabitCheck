@@ -18,6 +18,25 @@ public static class ActivityEvaluator
     /// <summary>Cửa sổ check-in DEADLINE: muộn nhất N phút sau mốc giờ (10 phút).</summary>
     public const int DeadlineLateMinutes = 10;
 
+    /// <summary>
+    /// Ngày neo của mốc DEADLINE trong ngày X. Mốc sớm (&lt; 02:00 — cửa sổ "2 giờ trước"
+    /// xuyên qua nửa đêm) neo sang ngày hôm sau: mốc 0:00 trong ngày X là 0:00 TỐI X,
+    /// cửa sổ [X 22:00 → X+1 00:10], check-in trong đó tính cho ngày X.
+    /// </summary>
+    public static DateOnly DeadlineAnchorDay(DateOnly day, TimeOnly deadlineTime)
+        => deadlineTime < new TimeOnly(2, 0) ? day.AddDays(1) : day;
+
+    /// <summary>Mốc giờ chính xác (instant) của DEADLINE trong ngày X.</summary>
+    public static DateTimeOffset DeadlineAnchor(DateOnly day, TimeOnly deadlineTime, TimeZoneInfo tz)
+        => ToInstant(DeadlineAnchorDay(day, deadlineTime), deadlineTime, tz);
+
+    /// <summary>Cửa sổ check-in của ngày X: [mốc − 2 giờ, mốc + 10 phút].</summary>
+    public static (DateTimeOffset Start, DateTimeOffset End) DeadlineWindow(DateOnly day, TimeOnly deadlineTime, TimeZoneInfo tz)
+    {
+        var anchor = DeadlineAnchor(day, deadlineTime, tz);
+        return (anchor.AddMinutes(-DeadlineEarlyMinutes), anchor.AddMinutes(DeadlineLateMinutes));
+    }
+
     public static ActivityEvaluation Evaluate(Activity a, DateOnly date, IReadOnlyList<CheckIn> dayCheckins, TimeZoneInfo tz)
     {
         var valid = dayCheckins.Where(c => c.ActivityId == a.Id && c.Status != CheckInStatus.Rejected).ToList();
@@ -30,7 +49,8 @@ public static class ActivityEvaluator
                     var first = valid.OrderBy(c => c.CheckinAt).FirstOrDefault();
                     if (first is null)
                         return new ActivityEvaluation(a.Id, false, rejectedOnly ? "REJECTED" : "MISSING", null, null);
-                    var limit = ToInstant(date, a.DeadlineTime!.Value.AddMinutes(DeadlineLateMinutes), tz);
+                    // Mốc sớm (< 02:00) neo sang ngày hôm sau — mốc 0:00 của ngày X là X+1 00:00.
+                    var limit = DeadlineAnchor(date, a.DeadlineTime!.Value, tz).AddMinutes(DeadlineLateMinutes);
                     return first.CheckinAt <= limit
                         ? new ActivityEvaluation(a.Id, true, null, null, first.CheckinAt)
                         : new ActivityEvaluation(a.Id, false, "LATE", null, first.CheckinAt);

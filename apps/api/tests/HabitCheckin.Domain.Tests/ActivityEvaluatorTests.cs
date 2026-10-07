@@ -102,6 +102,54 @@ public class ActivityEvaluatorTests
         result.Reason.Should().Be("REJECTED");
     }
 
+    // ---------- DEADLINE sớm (< 02:00): mốc neo sang ngày hôm sau (0:00 = 0:00 tối nay) ----------
+
+    [Fact]
+    public void Deadline_0h_EveningCheckin_CurrentDay_Passes()
+    {
+        // Mốc 0:00 trong ngày 15/01 neo sang 16/01 00:00 → cửa sổ [15/01 22:00, 16/01 00:10].
+        // Check-in 15/01 22:30 (tối ngày 15) → PASS cho ngày 15.
+        var a = NewActivity(ActivityType.Deadline, deadline: new TimeOnly(0, 0));
+        var result = ActivityEvaluator.Evaluate(a, Date,
+            [NewCheckin(Local(22, 30), CheckInStatus.Completed)], Tz);
+
+        result.Passed.Should().BeTrue();
+        result.Reason.Should().BeNull();
+    }
+
+    [Fact]
+    public void Deadline_0h_MorningGraceCheckin_PreviousDay_Passes()
+    {
+        // Check-in 15/01 00:05 (grace sau nửa đêm) thuộc cửa sổ của ngày 14/01
+        // ([14/01 22:00, 15/01 00:10]) → PASS cho ngày 14.
+        var a = NewActivity(ActivityType.Deadline, deadline: new TimeOnly(0, 0));
+        var result = ActivityEvaluator.Evaluate(a, Date.AddDays(-1),
+            [NewCheckin(Local(0, 5), CheckInStatus.Completed)], Tz);
+
+        result.Passed.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Deadline_0h_NoCheckin_IsMissing()
+    {
+        var a = NewActivity(ActivityType.Deadline, deadline: new TimeOnly(0, 0));
+        var result = ActivityEvaluator.Evaluate(a, Date, [], Tz);
+
+        result.Passed.Should().BeFalse();
+        result.Reason.Should().Be("MISSING");
+    }
+
+    [Fact]
+    public void Deadline_1h30_EveningCheckin_CurrentDay_Passes()
+    {
+        // Mốc 01:30 cũng neo sang ngày sau: cửa sổ ngày 15/01 = [15/01 23:30, 16/01 01:40].
+        var a = NewActivity(ActivityType.Deadline, deadline: new TimeOnly(1, 30));
+        var result = ActivityEvaluator.Evaluate(a, Date,
+            [NewCheckin(Local(23, 45), CheckInStatus.Completed)], Tz);
+
+        result.Passed.Should().BeTrue();
+    }
+
     // ---------- DURATION (tick + 1 ảnh: 1 check-in hoàn thành trong ngày là PASS) ----------
 
     [Fact]

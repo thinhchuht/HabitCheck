@@ -26,8 +26,9 @@ public static class LiveStateHelper
 
         bool over = a.Type switch
         {
+            // Mốc sớm (< 02:00) neo sang ngày hôm sau: ngày X "hết hạn" khi qua X+1 mốc + 10 phút.
             ActivityType.Deadline => a.DeadlineTime is TimeOnly t
-                && now >= ActivityEvaluator.ToInstant(today, t, tz).AddMinutes(ActivityEvaluator.DeadlineLateMinutes),
+                && now >= ActivityEvaluator.DeadlineAnchor(today, t, tz).AddMinutes(ActivityEvaluator.DeadlineLateMinutes),
             ActivityType.Window => a.WindowEnd is TimeOnly w
                 && now >= ActivityEvaluator.ToInstant(today, w, tz),
             _ => false
@@ -48,6 +49,6 @@ public static class LiveStateHelper
     {
         if (eval.Passed) return false;
         if (a.Type != ActivityType.Deadline || a.DeadlineTime is not TimeOnly t) return false;
-        return now >= ActivityEvaluator.ToInstant(today, t, tz);
+        return now >= ActivityEvaluator.DeadlineAnchor(today, t, tz);
     }
 }

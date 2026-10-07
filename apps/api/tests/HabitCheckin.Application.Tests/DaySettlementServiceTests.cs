@@ -160,4 +160,58 @@ public class DaySettlementServiceTests
         var result = await db.DailyResults.SingleAsync(r => r.ChallengeId == ch.Id && r.LocalDate == Today);
         result.Status.Should().Be(ResultStatus.Final);
     }
+
+    [Fact]
+    public async Task FinalizeDay_Recomputes_Late0hDeadlineCheckin_Captured()
+    {
+        // Cửa sổ mốc 0:00 của ngày X là [X 22:00 → X+1 00:10] — check-in có thể đến SAU
+        // job PROVISIONAL 00:05. Finalize phải đánh giá lại để không bỏ sót.
+        var (db, group, user, ch) = await NewContextAsync();
+        db.Activities.Add(new Activity
+        {
+            ChallengeId = ch.Id,
+            Name = "Đi ngủ trước 0:00",
+            Type = ActivityType.Deadline,
+            DeadlineTime = new TimeOnly(0, 0),
+            GraceMinutes = 0,
+            ProofType = ProofType.Photo,
+            SortOrder = 3
+        });
+        await db.SaveChangesAsync();
+
+        var service = NewService(db);
+        // Chốt PROVISIONAL khi chưa có check-in nào → 3 hoạt động fail.
+        await service.SettleChallengeDayAsync(ch.Id, Today, default);
+
+        // Check-in lúc 22:30 VN ngày Today — đến sau lúc chốt PROVISIONAL.
+        var media = new MediaAsset
+        {
+            UserId = user.Id,
+            PublicId = "late-1",
+            ResourceType = "image",
+            SecureUrl = "https://cdn.example/late-1.jpg",
+            UploadedAt = Now
+        };
+        var activity = await db.Activities.SingleAsync(a => a.Name == "Đi ngủ trước 0:00");
+        db.CheckIns.Add(new CheckIn
+        {
+            ActivityId = activity.Id,
+            UserId = user.Id,
+            LocalDate = Today,
+            CheckinAt = new DateTimeOffset(2025, 1, 15, 15, 30, 0, TimeSpan.Zero), // 22:30 VN
+            CheckinMediaId = media.Id,
+            Status = CheckInStatus.Completed,
+            CreatedAt = Now
+        });
+        db.MediaAssets.Add(media);
+        await db.SaveChangesAsync();
+
+        await service.FinalizeDayAsync(Today, default);
+
+        var result = await db.DailyResults.SingleAsync(r => r.ChallengeId == ch.Id && r.LocalDate == Today);
+        result.Status.Should().Be(ResultStatus.Final);
+        result.FailedCount.Should().Be(2); // mốc 0:00 PASS nhờ check-in 22:30
+        var ledger = await db.PenaltyLedger.SingleAsync(e => e.DailyResultId == result.Id);
+        ledger.Amount.Should().Be(50000); // 2 fail → bậc 2
+    }
 }

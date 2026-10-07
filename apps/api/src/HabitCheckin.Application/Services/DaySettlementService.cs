@@ -78,18 +78,11 @@ public class DaySettlementService : ISettlementService
         var challenge = await _db.Challenges.Include(c => c.User).FirstOrDefaultAsync(c => c.Id == challengeId, ct);
         if (challenge is null) return;
 
-        var group = await _db.Groups.AsNoTracking().FirstAsync(g => g.Id == challenge.GroupId, ct);
-
         var activities = await _db.Activities
             .Where(a => a.ChallengeId == challengeId)
             .OrderBy(a => a.SortOrder)
             .ToListAsync(ct);
         if (activities.Count == 0) return;
-
-        // Cheat day (mỗi user 1 ngày/tuần trong nhóm): không đánh giá, không phạt,
-        // vẫn ghi daily_result (Toàn bộ Neutral) để thống kê giữ nguyên chuỗi ngày.
-        var isCheatDay = await _db.CheatDays.AsNoTracking()
-            .AnyAsync(c => c.UserId == challenge.UserId && c.GroupId == challenge.GroupId && c.LocalDate == date, ct);
 
         var result = await _db.DailyResults
             .FirstOrDefaultAsync(r => r.ChallengeId == challengeId && r.LocalDate == date, ct);
@@ -98,6 +91,31 @@ public class DaySettlementService : ISettlementService
             result = new DailyResult { ChallengeId = challengeId, UserId = challenge.UserId, LocalDate = date };
             _db.DailyResults.Add(result);
         }
+
+        await ApplyDayEvaluationAsync(result, challenge, activities, date, ct);
+
+        result.Status = ResultStatus.Provisional;
+        result.ComputedAt = _clock.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+
+        await _realtime.GroupAsync(challenge.GroupId, EventNames.DailyResultUpdated, new DailyResultUpdatedEvent(
+            challenge.UserId.ToString(), Fmt.Date(date), result.FailedCount, result.PenaltyAmount, result.Status.ToString().ToUpperInvariant()), ct);
+    }
+
+    /// <summary>
+    /// Đánh giá lại và ghi kết quả (số đạt/fail, tiền phạt, chi tiết từng hoạt động) cho 1 ngày
+    /// của 1 challenge — không đổi Status. Dùng chung cho PROVISIONAL (job 00:05) và tính lại
+    /// trước khi FINAL (bắt check-in đến sau job 00:05, VD cửa sổ mốc 0:00 đóng lúc 00:10).
+    /// </summary>
+    private async Task ApplyDayEvaluationAsync(DailyResult result, Challenge challenge, List<Activity> activities, DateOnly date, CancellationToken ct)
+    {
+        var group = await _db.Groups.AsNoTracking().FirstAsync(g => g.Id == challenge.GroupId, ct);
+
+        // Cheat day (mỗi user 1 ngày/tuần trong nhóm): không đánh giá, không phạt,
+        // vẫn ghi daily_result (Toàn bộ Neutral) để thống kê giữ nguyên chuỗi ngày.
+        var isCheatDay = await _db.CheatDays.AsNoTracking()
+            .AnyAsync(c => c.UserId == challenge.UserId && c.GroupId == challenge.GroupId && c.LocalDate == date, ct);
 
         result.TotalCount = activities.Count;
         result.IsCheatDay = isCheatDay;
@@ -111,49 +129,40 @@ public class DaySettlementService : ISettlementService
 
             var oldDetails = await _db.ActivityDayResults.Where(d => d.DailyResultId == result.Id).ToListAsync(ct);
             _db.ActivityDayResults.RemoveRange(oldDetails);
+            return;
         }
-        else
+
+        var activityIds = activities.Select(a => a.Id).ToList();
+        var checkins = await _db.CheckIns
+            .Where(c => c.UserId == challenge.UserId && c.LocalDate == date && activityIds.Contains(c.ActivityId))
+            .ToListAsync(ct);
+
+        var evaluations = activities
+            .Select(a => (Activity: a, Eval: ActivityEvaluator.Evaluate(
+                a, date, checkins.Where(c => c.ActivityId == a.Id).ToList(), _clock.LocalTimeZone)))
+            .ToList();
+
+        var penalty = PenaltyCalculator.Calculate(
+            evaluations.Select(e => e.Eval), group.PenaltyTiers);
+
+        result.PassedCount = evaluations.Count(e => e.Eval.Passed);
+        result.FailedCount = evaluations.Count(e => !e.Eval.Passed);
+        result.PenaltyAmount = penalty;
+
+        var existingDetails = await _db.ActivityDayResults.Where(d => d.DailyResultId == result.Id).ToListAsync(ct);
+        _db.ActivityDayResults.RemoveRange(existingDetails);
+        foreach (var e in evaluations)
         {
-            var activityIds = activities.Select(a => a.Id).ToList();
-            var checkins = await _db.CheckIns
-                .Where(c => c.UserId == challenge.UserId && c.LocalDate == date && activityIds.Contains(c.ActivityId))
-                .ToListAsync(ct);
-
-            var evaluations = activities
-                .Select(a => (Activity: a, Eval: ActivityEvaluator.Evaluate(
-                    a, date, checkins.Where(c => c.ActivityId == a.Id).ToList(), _clock.LocalTimeZone)))
-                .ToList();
-
-            var penalty = PenaltyCalculator.Calculate(
-                evaluations.Select(e => e.Eval), group.PenaltyTiers);
-
-            result.PassedCount = evaluations.Count(e => e.Eval.Passed);
-            result.FailedCount = evaluations.Count(e => !e.Eval.Passed);
-            result.PenaltyAmount = penalty;
-
-            var oldDetails = await _db.ActivityDayResults.Where(d => d.DailyResultId == result.Id).ToListAsync(ct);
-            _db.ActivityDayResults.RemoveRange(oldDetails);
-            foreach (var e in evaluations)
+            _db.ActivityDayResults.Add(new ActivityDayResult
             {
-                _db.ActivityDayResults.Add(new ActivityDayResult
-                {
-                    DailyResultId = result.Id,
-                    ActivityId = e.Activity.Id,
-                    Passed = e.Eval.Passed,
-                    Reason = e.Eval.Reason,
-                    ActualMinutes = e.Eval.ActualMinutes,
-                    FirstCheckinAt = e.Eval.FirstCheckinAt
-                });
-            }
+                DailyResultId = result.Id,
+                ActivityId = e.Activity.Id,
+                Passed = e.Eval.Passed,
+                Reason = e.Eval.Reason,
+                ActualMinutes = e.Eval.ActualMinutes,
+                FirstCheckinAt = e.Eval.FirstCheckinAt
+            });
         }
-
-        result.Status = ResultStatus.Provisional;
-        result.ComputedAt = _clock.UtcNow;
-
-        await _db.SaveChangesAsync(ct);
-
-        await _realtime.GroupAsync(challenge.GroupId, EventNames.DailyResultUpdated, new DailyResultUpdatedEvent(
-            challenge.UserId.ToString(), Fmt.Date(date), result.FailedCount, result.PenaltyAmount, result.Status.ToString().ToUpperInvariant()), ct);
     }
 
     public async Task FinalizeDayAsync(DateOnly date, CancellationToken ct = default)
@@ -165,6 +174,18 @@ public class DaySettlementService : ISettlementService
 
         foreach (var r in results)
         {
+            // Tính lại trước khi khoá FINAL: bắt check-in đến sau job PROVISIONAL 00:05
+            // (VD cửa sổ mốc 0:00 đóng lúc 00:10 — 5 phút sau lúc chốt PROVISIONAL).
+            if (r.Challenge is not null)
+            {
+                var activities = await _db.Activities
+                    .Where(a => a.ChallengeId == r.ChallengeId)
+                    .OrderBy(a => a.SortOrder)
+                    .ToListAsync(ct);
+                if (activities.Count > 0)
+                    await ApplyDayEvaluationAsync(r, r.Challenge, activities, date, ct);
+            }
+
             r.Status = ResultStatus.Final;
             r.ComputedAt = _clock.UtcNow;
 
@@ -241,7 +262,8 @@ public class DaySettlementService : ISettlementService
                         {
                             var ahead = user.ReminderDeadlineAheadMinutes ?? 10;
                             // Nhắc tới khi cửa sổ check-in đóng (mốc +10 phút).
-                            var deadline = ActivityEvaluator.ToInstant(today, t, _clock.LocalTimeZone)
+                            // Mốc sớm (< 02:00) neo sang ngày sau: mốc 0:00 của hôm nay là 0:00 tối nay.
+                            var deadline = ActivityEvaluator.DeadlineAnchor(today, t, _clock.LocalTimeZone)
                                 .AddMinutes(ActivityEvaluator.DeadlineLateMinutes);
                             var remindFrom = deadline.AddMinutes(-ahead);
                             if (now >= remindFrom && now <= deadline)

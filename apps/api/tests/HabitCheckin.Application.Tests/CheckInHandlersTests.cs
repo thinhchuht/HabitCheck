@@ -33,10 +33,11 @@ public class CheckInHandlersTests
         public Mock<IRealtimeNotifier> Realtime { get; } = new();
     }
 
-    private static async Task<Context> CreateAsync(ChallengeStatus status = ChallengeStatus.Active)
+    private static async Task<Context> CreateAsync(ChallengeStatus status = ChallengeStatus.Active, DateTimeOffset? now = null)
     {
         var db = DbFactory.New();
-        var today = DateOnly.FromDateTime(Now.ToOffset(TimeSpan.FromHours(7)).DateTime);
+        var nowUtc = now ?? Now;
+        var today = DateOnly.FromDateTime(nowUtc.ToOffset(TimeSpan.FromHours(7)).DateTime);
 
         var user = new User
         {
@@ -81,9 +82,9 @@ public class CheckInHandlersTests
             TargetMinutes = 120,
             SortOrder = 1
         };
-        var checkInIntent = NewIntent(user.Id, deadlineActivity.Id, UploadIntentKind.CheckIn, Now.AddMinutes(-1));
-        var durationCheckInIntent = NewIntent(user.Id, durationActivity.Id, UploadIntentKind.CheckIn, Now.AddMinutes(-1));
-        var checkOutIntent = NewIntent(user.Id, durationActivity.Id, UploadIntentKind.CheckOut, Now);
+        var checkInIntent = NewIntent(user.Id, deadlineActivity.Id, UploadIntentKind.CheckIn, nowUtc.AddMinutes(-1));
+        var durationCheckInIntent = NewIntent(user.Id, durationActivity.Id, UploadIntentKind.CheckIn, nowUtc.AddMinutes(-1));
+        var checkOutIntent = NewIntent(user.Id, durationActivity.Id, UploadIntentKind.CheckOut, nowUtc);
 
         db.Users.Add(user);
         db.Groups.Add(group);
@@ -107,7 +108,7 @@ public class CheckInHandlersTests
             CheckInIntent = checkInIntent,
             DurationCheckInIntent = durationCheckInIntent,
             CheckOutIntent = checkOutIntent,
-            Clock = new FakeClock(Now)
+            Clock = new FakeClock(nowUtc)
         };
         SetupMocks(tx);
         return tx;
@@ -212,6 +213,74 @@ public class CheckInHandlersTests
 
         var ex = await act.Should().ThrowAsync<BusinessRuleException>();
         ex.Which.Message.Should().Contain("Quá giờ check-in");
+    }
+
+    // ---------- DEADLINE 0:00 (mốc sớm neo sang ngày sau: cửa sổ ngày X = [X 22:00 → X+1 00:10]) ----------
+
+    [Fact]
+    public async Task CheckIn_Deadline_0h_EveningWindow_AttributesToCurrentDay()
+    {
+        // Check-in lúc 22:30 VN ngày 15/01 (2h trước mốc 0:00 tối nay) → tính cho ngày 15/01.
+        var tx = await CreateAsync(now: new DateTimeOffset(2025, 1, 15, 15, 30, 0, TimeSpan.Zero));
+        tx.DeadlineActivity.DeadlineTime = new TimeOnly(0, 0);
+        await tx.Db.SaveChangesAsync();
+
+        var result = await CheckInHandler(tx).Handle(
+            new CheckInCommand(tx.DeadlineActivity.Id, tx.CheckInIntent.Id, "pub-1", null), default);
+
+        result.LocalDate.Should().Be("2025-01-15");
+    }
+
+    [Fact]
+    public async Task CheckIn_Deadline_0h_MorningGrace_AttributesToPreviousDay()
+    {
+        // 00:05 VN sau nửa đêm thuộc cửa sổ của ngày trước ([14/01 22:00 → 15/01 00:10])
+        // → tính cho ngày 14/01, không phải ngày 15/01.
+        var tx = await CreateAsync(now: new DateTimeOffset(2025, 1, 14, 17, 5, 0, TimeSpan.Zero));
+        tx.DeadlineActivity.DeadlineTime = new TimeOnly(0, 0);
+        await tx.Db.SaveChangesAsync();
+
+        var result = await CheckInHandler(tx).Handle(
+            new CheckInCommand(tx.DeadlineActivity.Id, tx.CheckInIntent.Id, "pub-1", null), default);
+
+        result.LocalDate.Should().Be("2025-01-14");
+    }
+
+    [Fact]
+    public async Task CheckIn_Deadline_0h_OutsideBothWindows_ThrowsBusinessRule()
+    {
+        // 05:00 VN: ngoài cửa sổ ngày trước (chốt 00:10) và trước cửa sổ tối nay (mở 22:00).
+        var tx = await CreateAsync(now: new DateTimeOffset(2025, 1, 14, 22, 0, 0, TimeSpan.Zero));
+        tx.DeadlineActivity.DeadlineTime = new TimeOnly(0, 0);
+        await tx.Db.SaveChangesAsync();
+
+        var act = () => CheckInHandler(tx).Handle(
+            new CheckInCommand(tx.DeadlineActivity.Id, tx.CheckInIntent.Id, "pub-1", null), default);
+
+        var ex = await act.Should().ThrowAsync<BusinessRuleException>();
+        ex.Which.Message.Should().Contain("Chưa đến giờ check-in");
+    }
+
+    [Fact]
+    public async Task CheckIn_Deadline_0h_EveningSecondCheckinSameDay_ThrowsConflict()
+    {
+        // Đã check-in tối ngày 15/01 (22:30) → check-in tiếp lúc 23:00 cùng ngày bị chặn.
+        var tx = await CreateAsync(now: new DateTimeOffset(2025, 1, 15, 15, 30, 0, TimeSpan.Zero));
+        tx.DeadlineActivity.DeadlineTime = new TimeOnly(0, 0);
+        await tx.Db.SaveChangesAsync();
+
+        var handler = CheckInHandler(tx);
+        await handler.Handle(
+            new CheckInCommand(tx.DeadlineActivity.Id, tx.CheckInIntent.Id, "pub-1", null), default);
+
+        var secondIntent = NewIntent(tx.User.Id, tx.DeadlineActivity.Id, UploadIntentKind.CheckIn, tx.Clock.UtcNow);
+        tx.Db.UploadIntents.Add(secondIntent);
+        await tx.Db.SaveChangesAsync();
+
+        var act = () => handler.Handle(
+            new CheckInCommand(tx.DeadlineActivity.Id, secondIntent.Id, "pub-2", null), default);
+
+        await act.Should().ThrowAsync<ConflictException>();
     }
 
     [Fact]
