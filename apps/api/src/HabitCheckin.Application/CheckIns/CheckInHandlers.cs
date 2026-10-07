@@ -107,7 +107,9 @@ public sealed class CheckInHandler(
             CheckinAt = checkinAt,
             CheckinMediaId = asset.Id,
             Note = string.IsNullOrWhiteSpace(cmd.Note) ? null : cmd.Note.Trim(),
-            Status = CheckInStatus.Completed
+            Status = CheckInStatus.Completed,
+            // Bắt buộc gán — không gán thì EF ghi CLR default 0001-01-01 (UI hiện "01/01 07:06").
+            CreatedAt = now
         };
 
         var isLate = false;

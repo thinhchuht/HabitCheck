@@ -160,6 +160,7 @@ public class CheckInHandlersTests
 
         result.Status.Should().Be(CheckInStatus.Completed);
         result.CheckinAt.Should().Be("2025-01-15T00:59:00Z"); // intent.IntentAt, không phải giờ server
+        result.CreatedAt.Should().Be("2025-01-15T01:00:00Z"); // giờ server, không phải 0001-01-01
         result.LocalDate.Should().Be("2025-01-15");
         result.ActivityName.Should().Be("Dậy sớm");
         result.CheckinMedia.PublicId.Should().Be("pub-1");
