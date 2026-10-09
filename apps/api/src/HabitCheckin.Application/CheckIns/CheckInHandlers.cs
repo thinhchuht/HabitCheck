@@ -49,26 +49,41 @@ public sealed class CheckInHandler(
         if (ch.Status != ChallengeStatus.Active)
             throw new BusinessRuleException("Kỳ thử thách không hoạt động hôm nay");
 
-        // DEADLINE: chỉ nhận check-in từ 2 giờ trước mốc đến 10 phút sau mốc
+        // Tải intent TRƯỚC khi validate cửa sổ: cửa sổ validate theo intent_at
+        // (thời điểm bắt đầu check-in) chứ không theo giờ server nhận request —
+        // upload chậm (mạng yếu) không bị tính trễ oan (§1.3: checkin_at = intent_at,
+        // media hoàn tất upload trong 15 phút sau intent).
+        var intent = await db.UploadIntents.FirstOrDefaultAsync(i =>
+            i.Id == cmd.IntentId && i.UserId == user.Id && i.ActivityId == activity.Id
+            && i.Kind == UploadIntentKind.CheckIn && i.UsedAt == null && i.ExpiresAt > now, ct)
+            ?? throw new BusinessRuleException("Upload intent không hợp lệ hoặc đã hết hạn");
+
+        // DEADLINE: chỉ nhận check-in trong cửa sổ [mốc − 2h, mốc + 10 phút] của MỘT ngày
         // (tính trên DateTimeOffset để mốc sớm không tràn TimeOnly khi lùi cửa sổ sang ngày trước).
         // Mốc sớm (< 02:00, VD 0:00) neo sang ngày hôm sau: cửa sổ của ngày X là [X 22:00 → X+1 00:10],
         // check-in tối ngày X tính cho ngày X; 10 phút đầu sau 0:00 thuộc cửa sổ của ngày trước.
+        // Mốc muộn (VD 23:55) phần grace sau 0:00 cũng thuộc cửa sổ của ngày trước.
+        // Mỗi thời điểm chỉ rơi vào đúng 1 cửa sổ (cửa sổ các ngày liên tiếp không giao nhau)
+        // → dò 2 ứng viên: ngày của intent_at, rồi ngày trước đó.
         DateOnly targetDay = today;
         if (activity.Type == ActivityType.Deadline && activity.DeadlineTime is TimeOnly dl)
         {
-            var (winStart, winEnd) = Domain.Services.ActivityEvaluator.DeadlineWindow(today, dl, clock.LocalTimeZone);
-            if (now >= winStart && now <= winEnd)
+            var tAt = intent.IntentAt;
+            var intentDay = clock.ToLocalDate(tAt);
+            var (winStart, winEnd) = Domain.Services.ActivityEvaluator.DeadlineWindow(intentDay, dl, clock.LocalTimeZone);
+            if (tAt >= winStart && tAt <= winEnd)
             {
-                targetDay = today;
+                targetDay = intentDay;
             }
             else
             {
-                var (prevStart, prevEnd) = Domain.Services.ActivityEvaluator.DeadlineWindow(today.AddDays(-1), dl, clock.LocalTimeZone);
-                if (now >= prevStart && now <= prevEnd)
+                var (prevStart, prevEnd) = Domain.Services.ActivityEvaluator.DeadlineWindow(
+                    intentDay.AddDays(-1), dl, clock.LocalTimeZone);
+                if (tAt >= prevStart && tAt <= prevEnd)
                 {
-                    targetDay = today.AddDays(-1);
+                    targetDay = intentDay.AddDays(-1);
                 }
-                else if (now < winStart)
+                else if (tAt < winStart)
                 {
                     throw new BusinessRuleException(
                         $"Chưa đến giờ check-in '{activity.Name}': chỉ nhận trong khoảng {winStart:HH:mm}–{winEnd:HH:mm} (sớm nhất 2 giờ trước mốc {dl:HH:mm}, muộn nhất 10 phút sau)");
@@ -83,11 +98,6 @@ public sealed class CheckInHandler(
             if (targetDay < ch.StartDate || targetDay > ch.EndDate)
                 throw new BusinessRuleException("Kỳ thử thách không hoạt động trong ngày của lần check-in này");
         }
-
-        var intent = await db.UploadIntents.FirstOrDefaultAsync(i =>
-            i.Id == cmd.IntentId && i.UserId == user.Id && i.ActivityId == activity.Id
-            && i.Kind == UploadIntentKind.CheckIn && i.UsedAt == null && i.ExpiresAt > now, ct)
-            ?? throw new BusinessRuleException("Upload intent không hợp lệ hoặc đã hết hạn");
 
         var asset = await media.VerifyAssetAsync(cmd.PublicId, activity.ProofType, intent.IntentAt, ct);
         asset.UserId = user.Id;

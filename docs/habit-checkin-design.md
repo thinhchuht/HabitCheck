@@ -43,7 +43,7 @@
 - Giới hạn: ảnh ≤ 10MB (cấu hình được).
 - Chống gian lận:
   - Giờ check-in lấy theo **giờ server**, không tin giờ client.
-  - Luồng: client xin _upload intent_ → server ghi `intent_at` và trả chữ ký Cloudinary → client upload → gửi `public_id` lên check-in. `checkin_at = intent_at`, với điều kiện media hoàn tất upload trong vòng 15 phút sau intent (kiểm bằng `created_at` từ Cloudinary Admin API). Nhờ vậy ảnh upload chậm (mạng yếu) không bị tính trễ oan.
+  - Luồng: client xin _upload intent_ → server ghi `intent_at` và trả chữ ký Cloudinary → client upload → gửi `public_id` lên check-in. `checkin_at = intent_at`, với điều kiện media hoàn tất upload trong vòng 15 phút sau intent (kiểm bằng `created_at` từ Cloudinary Admin API). Cửa sổ DEADLINE cũng validate theo `intent_at` (không theo giờ server nhận request) — check-in bắt đầu trong khung giờ mà gửi tới sau khi khung đóng (upload chậm) vẫn được nhận, nên ảnh upload chậm (mạng yếu) không bị tính trễ/trừ oan.
   - Trên mobile, input dùng `capture="environment"` để ưu tiên chụp trực tiếp từ camera.
   - Mỗi `public_id` chỉ dùng một lần.
   - **Không có bước duyệt**: bằng chứng hợp lệ ngay khi upload thành công (các endpoint report/approve/reject vẫn giữ trong code, UI không dùng).
@@ -636,7 +636,7 @@ Server đẩy về group:
 - Header: ngày, số hoạt động đã xong / tổng, **tiền phạt dự kiến hôm nay** (tính realtime).
 - **Cheat day**: nút "🎉 Cheat day hôm nay" (ẩn khi tuần này đã dùng hoặc hôm nay đã là cheat day); hôm nay là cheat day → banner xanh "Hôm nay là Cheat Day" (không có nút huỷ — đã đánh dấu thì giữ nguyên). Hoạt động hiển thị trung lập, phạt dự kiến 0đ.
 - Thẻ từng hoạt động:
-  - `DEADLINE`: chỉ nhận check-in từ **2 giờ trước đến 10 phút sau** mốc giờ (mở camera/chọn file): trước khung → "Chưa mở giờ check-in (HH:mm–HH:mm)" + nút disable; trong khung → đếm ngược (nút bật); sau khung → "ĐÃ QUÁ GIỜ" + disable. Thẻ tính cửa sổ từ `deadlineAt` do server trả (mốc sớm < 02:00 đã được neo sang 0:00 sáng hôm sau — VD mốc 0:00 → cửa sổ tối hôm nay 22:00–00:10, check-in tính cho hôm nay, xem §1.2).
+  - `DEADLINE`: chỉ nhận check-in từ **2 giờ trước đến 10 phút sau** mốc giờ (mở camera/chọn file): trước khung → "Chưa mở giờ check-in (HH:mm–HH:mm)" + nút disable; trong khung → đếm ngược (nút bật); sau khung → "ĐÃ QUÁ GIỜ" + disable. Thẻ tính cửa sổ từ `deadlineAt` do server trả (mốc sớm < 02:00 đã được neo sang 0:00 sáng hôm sau — VD mốc 0:00 → cửa sổ tối hôm nay 22:00–00:10, check-in tính cho hôm nay, xem §1.2). Sau 0:00 trang "Hôm nay" là ngày mới nên thẻ còn tính cả cửa sổ của **ngày trước** (`deadlineAt` − 24h): nếu now vẫn trong đó (VD 0:00–0:10 với mốc 0:00, hoặc phần grace sau 0:00 với mốc 23:5x) nút vẫn bật — server nhận và tính cho ngày trước (đúng logic 2 ứng viên của handler).
   - `DURATION`: thời lượng mục tiêu (VD "60 phút"), nút **Hoàn thành** (tick) mở hộp thoại chụp ảnh; sau check-in hiện ✅ kèm giờ và ảnh đã nộp.
   - Hiển thị ảnh đã nộp.
 
@@ -830,28 +830,39 @@ public async Task<CheckInDto> Handle(CheckInCommand cmd, CancellationToken ct)
         today < activity.Challenge.StartDate || today > activity.Challenge.EndDate)
         throw new BusinessRuleException("Challenge không hoạt động hôm nay");
 
+    // Tải intent TRƯỚC khi validate cửa sổ: cửa sổ validate theo intent_at
+    // (thời điểm bắt đầu check-in), không theo giờ server nhận request —
+    // upload chậm (mạng yếu) không bị tính trễ oan (§1.3).
+    var intent = await _db.UploadIntents.SingleOrDefaultAsync(i =>
+        i.Id == cmd.IntentId && i.UserId == _user.Id && i.ActivityId == activity.Id &&
+        i.Kind == "CHECKIN" && i.UsedAt == null && i.ExpiresAt > now, ct)
+        ?? throw new BusinessRuleException("Upload intent không hợp lệ hoặc đã hết hạn");
+
     // DEADLINE: chỉ nhận check-in trong cửa sổ [mốc − 2h, mốc + 10 phút] của MỘT ngày.
     // Mốc sớm (< 02:00) neo sang 0:00 sáng hôm sau (xem §1.2) — với mốc 0:00 thì
     // cửa sổ ngày hôm nay mở 22:00 tối nay, còn 10 phút đầu sau 0:00 thuộc về cửa sổ
-    // CỦA NGÀY HÔM QUA. Mỗi thời điểm chỉ rơi vào đúng 1 cửa sổ (cửa sổ các ngày
-    // liên tiếp không giao nhau) → dò 2 ứng viên: hôm nay rồi hôm qua.
+    // CỦA NGÀY HÔM QUA. Mốc muộn (VD 23:55) phần grace sau 0:00 cũng thuộc cửa sổ
+    // của ngày hôm qua. Mỗi thời điểm chỉ rơi vào đúng 1 cửa sổ (cửa sổ các ngày
+    // liên tiếp không giao nhau) → dò 2 ứng viên: ngày của intent_at rồi hôm trước.
     DateOnly targetDay = today;
     if (activity.Type == ActivityType.Deadline && activity.DeadlineTime is TimeOnly dl)
     {
-        var (winStart, winEnd) = Domain.Services.ActivityEvaluator.DeadlineWindow(today, dl, clock.LocalTimeZone);
-        if (now >= winStart && now <= winEnd)
+        var tAt = intent.IntentAt;
+        var intentDay = _clock.ToLocalDate(tAt);
+        var (winStart, winEnd) = Domain.Services.ActivityEvaluator.DeadlineWindow(intentDay, dl, clock.LocalTimeZone);
+        if (tAt >= winStart && tAt <= winEnd)
         {
-            targetDay = today;
+            targetDay = intentDay;
         }
         else
         {
             var (prevStart, prevEnd) = Domain.Services.ActivityEvaluator.DeadlineWindow(
-                today.AddDays(-1), dl, clock.LocalTimeZone);
-            if (now >= prevStart && now <= prevEnd)
+                intentDay.AddDays(-1), dl, clock.LocalTimeZone);
+            if (tAt >= prevStart && tAt <= prevEnd)
             {
-                targetDay = today.AddDays(-1);
+                targetDay = intentDay.AddDays(-1);
             }
-            else if (now < winStart)
+            else if (tAt < winStart)
                 throw new BusinessRuleException($"Chưa đến giờ check-in '{activity.Name}': chỉ nhận trong khoảng {winStart:HH:mm}–{winEnd:HH:mm} (sớm nhất 2 giờ trước mốc {dl:HH:mm}, muộn nhất 10 phút sau)");
             else
                 throw new BusinessRuleException($"Quá giờ check-in '{activity.Name}': chỉ nhận trong khoảng {winStart:HH:mm}–{winEnd:HH:mm} (sớm nhất 2 giờ trước mốc {dl:HH:mm}, muộn nhất 10 phút sau)");
@@ -859,11 +870,6 @@ public async Task<CheckInDto> Handle(CheckInCommand cmd, CancellationToken ct)
         if (targetDay < activity.Challenge.StartDate || targetDay > activity.Challenge.EndDate)
             throw new BusinessRuleException("Kỳ thử thách không hoạt động trong ngày của lần check-in này");
     }
-
-    var intent = await _db.UploadIntents.SingleOrDefaultAsync(i =>
-        i.Id == cmd.IntentId && i.UserId == _user.Id && i.ActivityId == activity.Id &&
-        i.Kind == "CHECKIN" && i.UsedAt == null && i.ExpiresAt > now, ct)
-        ?? throw new BusinessRuleException("Upload intent không hợp lệ hoặc đã hết hạn");
 
     var asset = await _media.VerifyAsync(cmd.PublicId, activity.ProofType, intent.IntentAt, ct); // kiểm tra tồn tại, loại, dung lượng, created_at trong 15'
     if (await _db.CheckIns.AnyAsync(c => c.ActivityId == activity.Id && c.UserId == _user.Id

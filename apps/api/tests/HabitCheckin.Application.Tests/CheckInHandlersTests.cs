@@ -174,6 +174,23 @@ public class CheckInHandlersTests
     }
 
     [Fact]
+    public async Task CheckIn_Deadline_IntentInWindow_PostedAfterWindowClose_Succeeds()
+    {
+        // Mốc 08:00 VN → khung 06:00–08:10. Intent 08:09 (trong khung) nhưng request
+        // chỉ tới server lúc 08:12 (upload chậm) → vẫn chấp nhận, checkin_at = intent_at.
+        // (Trước fix: validate theo giờ nhận request → bị từ chối "Quá giờ check-in".)
+        var tx = await CreateAsync(now: new(2025, 1, 15, 1, 12, 0, TimeSpan.Zero)); // đồng hồ = 08:12 VN
+        tx.CheckInIntent.IntentAt = new(2025, 1, 15, 1, 9, 0, TimeSpan.Zero);      // 08:09 VN
+        await tx.Db.SaveChangesAsync();
+
+        var result = await CheckInHandler(tx)
+            .Handle(new CheckInCommand(tx.DeadlineActivity.Id, tx.CheckInIntent.Id, "pub-1", null), default);
+
+        result.CheckinAt.Should().Be("2025-01-15T01:09:00Z");
+        result.LocalDate.Should().Be("2025-01-15");
+    }
+
+    [Fact]
     public async Task CheckIn_ExpiredIntent_ThrowsBusinessRule()
     {
         var tx = await CreateAsync();

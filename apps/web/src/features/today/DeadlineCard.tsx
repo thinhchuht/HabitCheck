@@ -30,13 +30,27 @@ export function DeadlineCard({ item }: DeadlineCardProps) {
     | "countdown"
     | "grace"
     | "missed" = "no-deadline";
+  // Cửa sổ hiệu lực: mặc định cửa sổ "hôm nay" tính từ deadlineAt (server đã neo mốc sớm
+  // <02:00 sang 0:00 sáng hôm sau). Sau 0:00 trang "Hôm nay" là ngày mới nên cửa sổ ngày mới
+  // chưa mở, nhưng phần grace cuối của ngày trước (VD 0:00–0:10 với mốc 0:00) nằm ở cửa sổ
+  // deadlineAt − 24h → nếu now còn trong đó vẫn mở nút (server nhận, tính cho ngày trước).
+  let windowStart = 0;
+  let windowEnd = 0;
+  let anchor = 0;
   if (deadline != null) {
-    const windowStart = deadline - EARLY_MS;
-    const windowEnd = deadline + LATE_MS;
+    windowStart = deadline - EARLY_MS;
+    windowEnd = deadline + LATE_MS;
+    anchor = deadline;
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    if (now >= windowStart - DAY_MS && now <= windowEnd - DAY_MS) {
+      windowStart -= DAY_MS;
+      windowEnd -= DAY_MS;
+      anchor -= DAY_MS;
+    }
     if (state === "PASS") status = "pass";
     else if (now < windowStart) status = "before";
     else if (now > windowEnd) status = "missed";
-    else if (now < deadline) status = "countdown";
+    else if (now < anchor) status = "countdown";
     else status = "grace";
   }
   const inWindow = status === "countdown" || status === "grace";
@@ -65,28 +79,26 @@ export function DeadlineCard({ item }: DeadlineCardProps) {
           <p className="text-sm text-slate-600">
             Chưa mở giờ check-in — chỉ nhận từ{" "}
             <span className="font-mono font-semibold text-slate-800">
-              {fmtTime(deadline! - EARLY_MS)}–{fmtTime(deadline! + LATE_MS)}
+              {fmtTime(windowStart)}–{fmtTime(windowEnd)}
             </span>{" "}
-            (sớm nhất 2h trước mốc {fmtTime(deadlineAt)}, muộn nhất 10 phút
-            sau).
+            (sớm nhất 2h trước mốc {fmtTime(anchor)}, muộn nhất 10 phút sau).
           </p>
         ) : status === "missed" ? (
           <p className="text-sm font-semibold text-rose-600">
-            ĐÃ QUÁ GIỜ (hạn {fmtTime(deadlineAt)}, chốt lúc{" "}
-            {fmtTime(deadline! + LATE_MS)})
+            ĐÃ QUÁ GIỜ (hạn {fmtTime(anchor)}, chốt lúc {fmtTime(windowEnd)})
           </p>
         ) : status === "countdown" ? (
           <p className="text-sm text-slate-600">
-            Hạn {fmtTime(deadlineAt)} — còn{" "}
+            Hạn {fmtTime(anchor)} — còn{" "}
             <span className="font-mono font-semibold text-indigo-600">
-              {formatCountdown(deadline!, now)}
+              {formatCountdown(anchor, now)}
             </span>
           </p>
         ) : (
           <p className="text-sm text-amber-600">
-            Đã qua hạn {fmtTime(deadlineAt)} — vẫn kịp check-in, còn{" "}
+            Đã qua hạn {fmtTime(anchor)} — vẫn kịp check-in, còn{" "}
             <span className="font-mono font-semibold">
-              {formatCountdown(deadline! + LATE_MS, now)}
+              {formatCountdown(windowEnd, now)}
             </span>
           </p>
         )}
